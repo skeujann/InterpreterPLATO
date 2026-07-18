@@ -1,0 +1,49 @@
+{
+  "schema_version": "2.0",
+  "purpose": "Human-readable provenance template; InterpreterPLATO does not consume this file at runtime.",
+  "source_authenticity": "User-attested; verify hashes against independent upstream records before allowlisting.",
+  "resources": [
+    {
+      "kind": "ppi",
+      "source": "STRING",
+      "version": "12.0",
+      "taxid": "9606",
+      "identifier_namespace": "gene_symbol",
+      "mapping_version": "HGNC-release",
+      "path": "C:/data/human_ppi.csv",
+      "sha256": "replace-with-real-sha256"
+    },
+    {
+      "kind": "expression",
+      "source": "DepMap",
+      "version": "release",
+      "taxid": "9606",
+      "identifier_namespace": "gene_symbol",
+      "mapping_version": "HGNC-release",
+      "background_complete": true,
+      "detection_threshold": 0.0,
+      "path": "C:/data/expression.csv",
+      "sha256": "replace-with-real-sha256"
+    },
+    {
+      "kind": "pathways",
+      "source": "MSigDB Hallmark",
+      "version": "release",
+      "taxid": "9606",
+      "identifier_namespace": "gene_symbol",
+      "mapping_version": "HGNC-release",
+      "path": "C:/data/hallmark.gmt",
+      "sha256": "replace-with-real-sha256"
+    },
+    {
+      "kind": "disease_genes",
+      "source": "curated disease set",
+      "version": "release",
+      "taxid": "9606",
+      "identifier_namespace": "gene_symbol",
+      "mapping_version": "HGNC-release",
+      "path": "C:/data/disease_genes.txt",
+      "sha256": "replace-with-real-sha256"
+    }
+  ]
+}

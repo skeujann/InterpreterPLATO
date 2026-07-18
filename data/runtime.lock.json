@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "manifest_kind": "runtime_integrity_lock",
+  "lock_kind": "runtime_integrity_lock",
+  "project": "InterpreterPLATO",
+  "root": "..",
+  "scope": "Production configuration, the five files it loads, and the small offline PLATO schema fixture.",
+  "runtime_artifact_bytes": 7909224,
+  "fixture_bytes": 103199,
+  "total_size_bytes": 8012423,
+  "production_configuration": {
+    "relative_path": "data/production_context.json",
+    "size_bytes": 2049,
+    "sha256": "52075a6bdbc7375737f63ebaec079aef3bd8e6ee7daf95aba37ea8c2e1a80522"
+  },
+  "runtime_artifacts": [
+    {
+      "id": "ppi",
+      "relative_path": "data/processed/context/string_v12.0_hgnc_2026-04-01.tsv.gz",
+      "size_bytes": 1143940,
+      "sha256": "2770bb935c0155072636f09d84964901978a2242fd41c9c0319130c8c920bd54"
+    },
+    {
+      "id": "expression",
+      "relative_path": "data/processed/context/depmap_26Q1_scoreri_log2tpm.csv.gz",
+      "size_bytes": 5387105,
+      "sha256": "0dc879120f355eb2c5e49bb8ad3bf8e3873cd3f5cc12e7e53aaec399f6b25c99"
+    },
+    {
+      "id": "pathways",
+      "relative_path": "data/processed/context/reactome_v96_hgnc_2026-04-01.gmt",
+      "size_bytes": 999448,
+      "sha256": "ac89bf070ebbc4a4d7e7548dcf3ec3f71cf68a52c0c7540c027b9b66eac6d271"
+    },
+    {
+      "id": "disease",
+      "relative_path": "data/processed/context/cosmic_cgc_v101_pan_cancer_tier1.txt",
+      "size_bytes": 3351,
+      "sha256": "77be2b62c28bd48368e3fa7b9e3e62239c7247c51e28f5b9a1b602dfc4b18455"
+    },
+    {
+      "id": "target_mapping",
+      "relative_path": "data/processed/context/chembl_r37_target_hgnc_mapping.tsv.gz",
+      "size_bytes": 373331,
+      "sha256": "9552f694f0dfe9d253a52faeeae34233624ed040d9b8dfa12bd6243517aa249f"
+    }
+  ],
+  "offline_test_fixtures": [
+    {
+      "id": "plato_r37_fixture_manifest",
+      "relative_path": "data/raw/plato/r37/golden_fixture/fixture_manifest.json",
+      "size_bytes": 2919,
+      "sha256": "3d635b8db3939f97a5f7c5c8fb2ced2ef83334152162b2851d456b818566f0ad"
+    },
+    {
+      "id": "plato_r37_target_fishing_json",
+      "relative_path": "data/raw/plato/r37/golden_fixture/gemcitabine_target_fishing_response_2026-07-16.json",
+      "size_bytes": 100280,
+      "sha256": "d2fc1cecf4784261e6674ec21559dd8cbfb60c282ed06c76817884102524484d"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Compatibility constraints for tools that do not consume pyproject.toml.
+# Use requirements.lock for a reviewed, reproducible environment.
+numpy>=1.26.4,<2
+pandas>=2.2.3,<3
+networkx>=2.8.8,<4
+pyyaml>=6.0.1,<7
+# Required for strict SMILES parsing, canonicalization, and InChIKey binding.
+# The upper bound prevents an unreviewed RDKit release from changing molecular
+# identity during a production run. Record Python and every resolved package
+# version (for example with `python -m pip freeze`) alongside each release run.
+rdkit>=2025.3.3,<2026.0

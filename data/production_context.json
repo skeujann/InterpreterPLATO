@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "runtime_manifest": "runtime.lock.json",
+  "resources": {
+    "ppi": {
+      "path": "processed/context/string_v12.0_hgnc_2026-04-01.tsv.gz",
+      "source": "STRING",
+      "version": "12.0",
+      "taxid": "9606",
+      "identifier_namespace": "hgnc_symbol",
+      "mapping_version": "HGNC-2026-04-01",
+      "sha256": "2770bb935c0155072636f09d84964901978a2242fd41c9c0319130c8c920bd54",
+      "confidence_scale": "auto",
+      "weight_semantics": "confidence"
+    },
+    "expression": {
+      "path": "processed/context/depmap_26Q1_scoreri_log2tpm.csv.gz",
+      "source": "DepMap Public",
+      "version": "26Q1",
+      "taxid": "9606",
+      "identifier_namespace": "hgnc_symbol",
+      "mapping_version": "HGNC-2026-04-01",
+      "sha256": "0dc879120f355eb2c5e49bb8ad3bf8e3873cd3f5cc12e7e53aaec399f6b25c99",
+      "background_complete": true,
+      "detection_threshold": 1.0
+    },
+    "pathways": {
+      "path": "processed/context/reactome_v96_hgnc_2026-04-01.gmt",
+      "source": "Reactome",
+      "version": "96",
+      "taxid": "9606",
+      "identifier_namespace": "hgnc_symbol",
+      "mapping_version": "HGNC-2026-04-01",
+      "sha256": "ac89bf070ebbc4a4d7e7548dcf3ec3f71cf68a52c0c7540c027b9b66eac6d271"
+    },
+    "disease": {
+      "path": "processed/context/cosmic_cgc_v101_pan_cancer_tier1.txt",
+      "source": "COSMIC Cancer Gene Census",
+      "version": "v101-GRCh38-Tier1",
+      "taxid": "9606",
+      "identifier_namespace": "hgnc_symbol",
+      "mapping_version": "HGNC-2026-04-01",
+      "sha256": "77be2b62c28bd48368e3fa7b9e3e62239c7247c51e28f5b9a1b602dfc4b18455",
+      "name": "pan_cancer_tier1"
+    },
+    "target_mapping": {
+      "path": "processed/context/chembl_r37_target_hgnc_mapping.tsv.gz",
+      "source": "ChEMBL",
+      "version": "r37",
+      "taxid": "9606",
+      "identifier_namespace": "chembl_target_id_to_hgnc_symbol",
+      "mapping_version": "ChEMBL-r37 + HGNC-2026-04-01",
+      "sha256": "9552f694f0dfe9d253a52faeeae34233624ed040d9b8dfa12bd6243517aa249f"
+    }
+  }
+}

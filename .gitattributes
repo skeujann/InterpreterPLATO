@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# These JSON/TSV files participate in SHA-256 locks.  Force stable checkout
+# bytes even when a Windows user has core.autocrlf enabled.
+*.json text eol=lf
+*.tsv text eol=lf
+*.csv text eol=lf
+*.gmt text eol=lf
+*.txt text eol=lf
+*.lock text eol=lf
+
+# Archived provider responses are immutable byte artifacts.
+data/raw/plato/** -text
+
+*.gz binary
+*.pdf binary
+*.xlsx binary
+*.db binary
+*.pkl binary

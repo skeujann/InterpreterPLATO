@@ -1,0 +1,19 @@
+# InterpreterPLATO runtime lock
+#
+# Resolved without network access from packages available on Windows 10 x86_64
+# with CPython 3.9.10. PyYAML 6.0.1 was cross-checked in the locally available
+# CPython 3.12 environment because it was absent from the 3.9 environment.
+# This file pins versions, but intentionally does not claim cross-platform wheel
+# hashes. Re-resolve and review it when the OS, architecture, or Python minor
+# version changes. Supported Python: >=3.9,<3.13.
+
+networkx==2.8.8
+numpy==1.26.4
+pandas==2.2.3
+pillow==11.0.0
+python-dateutil==2.9.0.post0
+pytz==2024.2
+PyYAML==6.0.1
+rdkit==2025.3.3
+six==1.16.0
+tzdata==2024.2; platform_system == "Windows"

@@ -1,0 +1,21 @@
+# Python caches
+__pycache__/
+.pytest_cache/
+data/processed/plato_cache/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+
+# Local datasets and generated caches
+data/raw/
+data/processed/
+data/manifest.local.json
+
+# Runtime outputs
+outputs/
+
+# Local environment files
+.env
+.venv/
+venv/

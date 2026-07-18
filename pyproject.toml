@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "interpreterplato"
+version = "5.1.0"
+description = "Auditable PLATO-only drug-combination mechanism interpreter"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+  "networkx>=2.8.8,<4",
+  "numpy>=1.26.4,<2",
+  "pandas>=2.2.3,<3",
+  "PyYAML>=6.0.1,<7",
+  "rdkit>=2025.3.3,<2026.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.4.4,<9"]
+
+[project.scripts]
+interpreter-plato = "InterpreterPLATO.scripts.run_interpreter:main"
+plato-query-once = "InterpreterPLATO.scripts.query_plato_once:main"
+plato-query-pair = "InterpreterPLATO.scripts.query_pair_and_explain:main"
+plato-import-result = "InterpreterPLATO.scripts.import_plato_result:main"
+plato-build-context = "InterpreterPLATO.scripts.build_context_artifacts:main"
+plato-build-target-map = "InterpreterPLATO.scripts.build_chembl_target_mapping:main"
+plato-bootstrap-data = "InterpreterPLATO.scripts.bootstrap_data:main"
+plato-verify-data = "InterpreterPLATO.scripts.verify_manifest:main"
+
+[tool.setuptools]
+packages = ["InterpreterPLATO", "InterpreterPLATO.scripts"]
+include-package-data = false
+
+[tool.setuptools.package-dir]
+InterpreterPLATO = "."
+"InterpreterPLATO.scripts" = "scripts"
+
+[tool.setuptools.package-data]
+InterpreterPLATO = [
+  "data/production_context.example.json",
+  "data/production_context.json",
+  "data/runtime.lock.json",
+  "data/source.lock.json",
+  "data/source_registry.json",
+  "data/scoreri_cell_lines.tsv",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.4"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"

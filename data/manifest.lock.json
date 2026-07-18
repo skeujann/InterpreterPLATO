@@ -1,0 +1,344 @@
+{
+  "schema_version": "1.0",
+  "manifest_kind": "source_integrity_lock",
+  "project": "InterpreterPLATO",
+  "recorded_at_utc": "2026-07-15T08:56:16.7830945Z",
+  "coverage": "Versioned source checks, explicitly labeled local-only snapshots, and the HGNC-normalized production build are hash-locked.",
+  "resources": [
+    {
+      "source": "COSMIC",
+      "dataset": "Cancer Gene Census",
+      "release": "v101",
+      "release_date": "2024-11-19",
+      "genome_build": "GRCh38",
+      "organism": "Homo sapiens",
+      "taxid": 9606,
+      "landing_page_url": "https://cancer.sanger.ac.uk/cosmic/download/cosmic/v101/cancergenecensus",
+      "license_terms_url": "https://www.cosmickb.org/terms/",
+      "license_note": "Licensed COSMIC data; do not redistribute raw artifacts or record credentials and temporary download URLs.",
+      "verification_status": "official_archive_sha256_match_and_payload_match",
+      "official_archive": {
+        "filename": "Cosmic_CancerGeneCensus_Tsv_v101_GRCh38.tar",
+        "relative_path": "data/raw/disease/cosmic/v101/Cosmic_CancerGeneCensus_Tsv_v101_GRCh38.tar",
+        "size_bytes": 71680,
+        "official_sha256": "2e9565c45e89985fb1c096f29af7cc67166ffaf4eb8964f004986f653e22c755",
+        "local_sha256": "2e9565c45e89985fb1c096f29af7cc67166ffaf4eb8964f004986f653e22c755",
+        "checksum_match": true
+      },
+      "archive_members": [
+        {
+          "filename": "README_Cosmic_CancerGeneCensus_v101_GRCh38.txt",
+          "relative_path": "data/raw/disease/cosmic/v101/README_Cosmic_CancerGeneCensus_v101_GRCh38.txt",
+          "size_bytes": 3529,
+          "sha256": "6ddfedbe65bb211444d849a3525b3910a07bb450b0fd4121d478551c2c1c0b4a"
+        },
+        {
+          "filename": "Cosmic_CancerGeneCensus_v101_GRCh38.tsv.gz",
+          "relative_path": "data/raw/disease/cosmic/v101/Cosmic_CancerGeneCensus_v101_GRCh38.tsv.gz",
+          "size_bytes": 60623,
+          "sha256": "26f44e3a990c787d43c2eaf52805a54732fc092218509fb0280ad1495437591e"
+        }
+      ],
+      "decompressed_payload": {
+        "filename": "Cosmic_CancerGeneCensus_v101_GRCh38.tsv",
+        "relative_path": "data/raw/disease/cosmic/v101/Cosmic_CancerGeneCensus_v101_GRCh38.tsv",
+        "size_bytes": 152821,
+        "sha256": "c7cc8514db46411bc88e01efde97070cb229f19175ac76207a8cca69b1f108b0",
+        "line_count_including_header": 754,
+        "data_row_count": 753,
+        "column_count": 21,
+        "compression_only_transformation": true,
+        "matches_official_archive_member_after_decompression": true
+      }
+    },
+    {
+      "source": "HGNC",
+      "dataset": "HGNC Complete Set",
+      "version": "2026-04-01 quarterly archive",
+      "organism": "Homo sapiens",
+      "taxid": 9606,
+      "landing_page_url": "https://www.genenames.org/download/archive/",
+      "source_url": "https://storage.googleapis.com/public-download-files/hgnc/archive/archive/quarterly/tsv/hgnc_complete_set_2026-04-01.txt",
+      "verification_status": "official_versioned_url_local_sha256_recorded",
+      "verification_note": "The release identity is pinned by the official dated archive URL and filename. No independently published upstream checksum was matched; sha256 is the recorded local artifact digest.",
+      "artifact": {
+        "filename": "hgnc_complete_set_2026-04-01.txt",
+        "relative_path": "data/raw/gene_mapping/hgnc/2026-04-01/hgnc_complete_set_2026-04-01.txt",
+        "size_bytes": 17030334,
+        "sha256": "ad19966c08ccebd7b0fad25d553a5db8770a188fef9cf93fc24dd74796c45d34"
+      }
+    },
+    {
+      "source": "ChEMBL",
+      "dataset": "Target dictionary and target-component mapping",
+      "version": "r37",
+      "release_date": "2026-05-29",
+      "organism": "Homo sapiens target components normalized to HGNC",
+      "taxid": 9606,
+      "landing_page_url": "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_37/",
+      "license_terms_url": "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_37/LICENSE",
+      "required_attribution_url": "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_37/REQUIRED.ATTRIBUTION",
+      "schema_documentation_url": "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_37/schema_documentation.txt",
+      "verification_status": "official_archive_sha256_match_processed_mapping_recorded",
+      "usage_semantics": "Identifier translation only. ChEMBL target IDs predicted by PLATO are mapped to HGNC symbols; ChEMBL drug-target associations are not imported or used as target evidence.",
+      "official_archive": {
+        "filename": "chembl_37_sqlite.tar.gz",
+        "relative_path": "data/raw/target_mapping/chembl/r37/chembl_37_sqlite.tar.gz",
+        "size_bytes": 5764252857,
+        "official_sha256": "33c203740555f96067710cdfc1c3c55d890660e5908ec5cbf5817492c290d281",
+        "local_sha256": "33c203740555f96067710cdfc1c3c55d890660e5908ec5cbf5817492c290d281",
+        "checksum_match": true
+      },
+      "source_metadata_files": [
+        {
+          "filename": "checksums.txt",
+          "relative_path": "data/raw/target_mapping/chembl/r37/checksums.txt",
+          "size_bytes": 790,
+          "sha256": "e949808982cc9f0d08fa16b42ebe75b4e04b511d8b96693c973890e6e024e62a"
+        },
+        {
+          "filename": "LICENSE.txt",
+          "relative_path": "data/raw/target_mapping/chembl/r37/LICENSE.txt",
+          "size_bytes": 21142,
+          "sha256": "f0c22ca33207ad8a85129a71f1454fcf8f2f71c99e68da5da01538210fa3ffba"
+        },
+        {
+          "filename": "REQUIRED.ATTRIBUTION.txt",
+          "relative_path": "data/raw/target_mapping/chembl/r37/REQUIRED.ATTRIBUTION.txt",
+          "size_bytes": 733,
+          "sha256": "41eb0cf5eb2ceec5954db84f6c73969c7d928799fe39a7771140cdb0afc4a0df"
+        },
+        {
+          "filename": "schema_documentation.txt",
+          "relative_path": "data/raw/target_mapping/chembl/r37/schema_documentation.txt",
+          "size_bytes": 96496,
+          "sha256": "170021a58a6d8c09ca088eae5ee75c9b9d0b3b457c6428adf63986b9d765f9fb"
+        }
+      ],
+      "extracted_sqlite": {
+        "filename": "chembl_37.db",
+        "relative_path": "data/raw/target_mapping/chembl/r37/chembl_37/chembl_37_sqlite/chembl_37.db",
+        "size_bytes": 30480314368,
+        "sha256": "4be13df3b68e25dcd0bff44bf094033b5aebe98f415acdc8c1cdf380e0c15142"
+      },
+      "processed_mapping": {
+        "filename": "chembl_r37_target_hgnc_mapping.tsv.gz",
+        "relative_path": "data/processed/context/chembl_r37_target_hgnc_mapping.tsv.gz",
+        "size_bytes": 373331,
+        "sha256": "9552f694f0dfe9d253a52faeeae34233624ed040d9b8dfa12bd6243517aa249f",
+        "hgnc_release": "2026-04-01",
+        "mapped_targets": 7478,
+        "mapped_single_component_targets": 5877
+      },
+      "processed_qc": {
+        "filename": "chembl_r37_target_hgnc_mapping_qc.json",
+        "relative_path": "data/processed/context/chembl_r37_target_hgnc_mapping_qc.json",
+        "size_bytes": 2165,
+        "sha256": "d883f2772c1fa58cc52b11ebf2f1d8ecd593d08863986b84b16acf6ea01a6ca1"
+      }
+    },
+    {
+      "source": "DepMap",
+      "dataset": "OmicsExpressionTPMLogp1HumanProteinCodingGenes",
+      "version": "DepMap Public 26Q1",
+      "organism": "Homo sapiens",
+      "taxid": 9606,
+      "landing_page_url": "https://depmap.org/portal/data_page/?file=OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv&release=DepMap+Public+26Q1",
+      "data_semantics": "log2(TPM + 1), unstranded RNA-seq, human protein-coding genes",
+      "verification_status": "official_release_page_local_sha256_recorded",
+      "verification_note": "The official release-specific page identifies this filename as a 26Q1 file. No independently published upstream checksum was matched; sha256 is the recorded local artifact digest.",
+      "artifact": {
+        "filename": "OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv",
+        "relative_path": "data/raw/cell_line_context/depmap/26Q1/OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv",
+        "size_bytes": 305007605,
+        "sha256": "0377be80c525fde98cbd2c6e8b06bdf2a4014a9683eb70182c1f8649d711021a"
+      }
+    },
+    {
+      "source": "DepMap",
+      "dataset": "Model metadata companion snapshots",
+      "version": "unknown (versionless local snapshots)",
+      "verification_status": "local_snapshot_only",
+      "verification_note": "These versionless files are outside the 26Q1 subdirectory, and their local bytes do not independently prove a DepMap release. They must not be represented as release-verified 26Q1 artifacts.",
+      "artifacts": [
+        {
+          "filename": "Model.csv",
+          "relative_path": "data/raw/cell_line_context/depmap/Model.csv",
+          "size_bytes": 697455,
+          "sha256": "ea4e0b2a3bc806f81df62689a5ae75f1a100135727a3d7b8a4c7ccc8815183f8"
+        },
+        {
+          "filename": "OmicsProfiles.csv",
+          "relative_path": "data/raw/cell_line_context/depmap/OmicsProfiles.csv",
+          "size_bytes": 671558,
+          "sha256": "978f9ff9a11214e9d923619c20d2bc36bf4ca3e30fd46a6d9a424ea0e7c49bd2"
+        },
+        {
+          "filename": "ModelCondition.csv",
+          "relative_path": "data/raw/cell_line_context/depmap/ModelCondition.csv",
+          "size_bytes": 223524,
+          "sha256": "8060accf252366d165618d80808e4e903ce5142de22fbd400a785ed195c1eb60"
+        }
+      ]
+    },
+    {
+      "source": "Reactome",
+      "dataset": "Reactome Pathways Gene Set",
+      "version": "v96",
+      "release_date": "2026-04-01",
+      "organism": "Homo sapiens",
+      "taxid": 9606,
+      "landing_page_url": "https://reactome.org/download-data",
+      "release_announcement_url": "https://reactome.org/about/news/291-v96-released",
+      "verification_status": "official_versioned_archive_payload_sha256_match",
+      "verification_note": "The official /96/ ZIP returned HTTP 200. Its sole ReactomePathways.gmt member was hashed after in-memory extraction and matches the local payload exactly.",
+      "source_archive_observation": {
+        "filename": "ReactomePathways.gmt.zip",
+        "source_url": "https://download.reactome.org/96/ReactomePathways.gmt.zip",
+        "size_bytes": 294237,
+        "sha256": "ed5c201339fc5ae6f98d625325a2feb47f2b0576a0529dc937e4587fa498243b",
+        "http_last_modified": "2026-03-27T19:12:43Z",
+        "observed_at_utc": "2026-07-15T08:26:00Z"
+      },
+      "artifact": {
+        "filename": "ReactomePathways.gmt",
+        "source_archive_member": "ReactomePathways.gmt",
+        "relative_path": "data/raw/pathways/reactome/ReactomePathways.gmt",
+        "size_bytes": 1017374,
+        "sha256": "cf17607f842c1742d3ecb96e6a4b03f11889c39f44005a37c31d12e4c006b65e",
+        "matches_source_archive_member": true
+      }
+    },
+    {
+      "source": "STRING",
+      "dataset": "Human protein links full and protein information",
+      "version": "v12.0",
+      "organism": "Homo sapiens",
+      "taxid": 9606,
+      "landing_page_url": "https://string-db.org/cgi/download?species_text=Homo+sapiens",
+      "verification_status": "official_versioned_listing_local_sha256_recorded",
+      "verification_note": "The official STRING download listing identifies both taxon-specific v12.0 archive filenames. No independently published upstream checksum was matched; the uncompressed local snapshot digests are recorded here.",
+      "artifacts": [
+        {
+          "filename": "9606.protein.info.v12.0.txt",
+          "upstream_archive_filename": "9606.protein.info.v12.0.txt.gz",
+          "relative_path": "data/raw/ppi/string/9606.protein.info.v12.0.txt",
+          "size_bytes": 6257901,
+          "sha256": "a65e52748022d6a8e953843645a5032b094017225d95de9c6cb6fd4577d0a7ad"
+        },
+        {
+          "filename": "9606.protein.links.full.v12.0.txt",
+          "upstream_archive_filename": "9606.protein.links.full.v12.0.txt.gz",
+          "relative_path": "data/raw/ppi/string/9606.protein.links.full.v12.0.txt",
+          "size_bytes": 1043993447,
+          "sha256": "d9da3020817fff2d7be6f960848be49e780b22ce04e73bcf63c4874ca6ddfde3"
+        }
+      ]
+    },
+    {
+      "source": "InterpreterPLATO local build",
+      "dataset": "HGNC-normalized production context",
+      "version": "STRING-v12.0_DepMap-26Q1_Reactome-v96_COSMIC-v101_HGNC-2026-04-01",
+      "organism": "Homo sapiens",
+      "taxid": 9606,
+      "verification_status": "local_build_outputs_sha256_recorded",
+      "build_status": "complete_with_declared_gaps",
+      "build_note": "The 70 included ScoreRI cell lines each retain the complete 19,214-gene normalized background. This does not assert 81/81 cell-line coverage: ten mapped models lack a verified default expression profile and SR remains explicitly unresolved.",
+      "builder": "scripts/build_context_artifacts.py",
+      "runtime_artifacts": [
+        {
+          "filename": "string_v12.0_hgnc_2026-04-01.tsv.gz",
+          "relative_path": "data/processed/context/string_v12.0_hgnc_2026-04-01.tsv.gz",
+          "size_bytes": 1143940,
+          "sha256": "2770bb935c0155072636f09d84964901978a2242fd41c9c0319130c8c920bd54"
+        },
+        {
+          "filename": "depmap_26Q1_scoreri_log2tpm.csv.gz",
+          "relative_path": "data/processed/context/depmap_26Q1_scoreri_log2tpm.csv.gz",
+          "size_bytes": 5387105,
+          "sha256": "0dc879120f355eb2c5e49bb8ad3bf8e3873cd3f5cc12e7e53aaec399f6b25c99"
+        },
+        {
+          "filename": "reactome_v96_hgnc_2026-04-01.gmt",
+          "relative_path": "data/processed/context/reactome_v96_hgnc_2026-04-01.gmt",
+          "size_bytes": 999448,
+          "sha256": "ac89bf070ebbc4a4d7e7548dcf3ec3f71cf68a52c0c7540c027b9b66eac6d271"
+        },
+        {
+          "filename": "cosmic_cgc_v101_pan_cancer_tier1.txt",
+          "relative_path": "data/processed/context/cosmic_cgc_v101_pan_cancer_tier1.txt",
+          "size_bytes": 3351,
+          "sha256": "77be2b62c28bd48368e3fa7b9e3e62239c7247c51e28f5b9a1b602dfc4b18455"
+        },
+        {
+          "filename": "production_context.json",
+          "relative_path": "data/production_context.json",
+          "size_bytes": 2049,
+          "sha256": "52075a6bdbc7375737f63ebaec079aef3bd8e6ee7daf95aba37ea8c2e1a80522"
+        }
+      ],
+      "build_and_mapping_audit_artifacts": [
+        {
+          "filename": "build_qc.json",
+          "relative_path": "data/processed/context/build_qc.json",
+          "size_bytes": 11329,
+          "sha256": "2f1361d37e71e7e84a83756e1a25925719179f8f8623fa80241ebd990afec9c0"
+        },
+        {
+          "filename": "cell_line_model_map.tsv",
+          "relative_path": "data/processed/context/cell_line_model_map.tsv",
+          "size_bytes": 14248,
+          "sha256": "d618bba7c9a583247c47a7e35f9784b6e1a3c75ee21c9062fd3f53c49ff79dd9"
+        },
+        {
+          "filename": "cell_line_mapping_rejections.tsv",
+          "relative_path": "data/processed/context/cell_line_mapping_rejections.tsv",
+          "size_bytes": 2501,
+          "sha256": "c976c2de30663b6d7c17e7cf79396d6919e5149dc40ddb316d4ed5ff855f4efe"
+        },
+        {
+          "filename": "gene_map.tsv",
+          "relative_path": "data/processed/context/gene_map.tsv",
+          "size_bytes": 1636771,
+          "sha256": "fed9156c507f532b60532af89b999f069d5832977cab6729cb0fb68a06a77c93"
+        },
+        {
+          "filename": "string_protein_map.tsv.gz",
+          "relative_path": "data/processed/context/string_protein_map.tsv.gz",
+          "size_bytes": 391075,
+          "sha256": "7fc84700a737fe728e55ca1e309b1dbffa2d0cb5d0db7635d3fea8fabdb9984d"
+        },
+        {
+          "filename": "string_edge_rejections.tsv.gz",
+          "relative_path": "data/processed/context/string_edge_rejections.tsv.gz",
+          "size_bytes": 57873,
+          "sha256": "b7777d72b2ab63aa878f3b08319aab5bb54f8d76e05307b07ce9774d61b0eb4c"
+        },
+        {
+          "filename": "reactome_gene_rejections.tsv.gz",
+          "relative_path": "data/processed/context/reactome_gene_rejections.tsv.gz",
+          "size_bytes": 21918,
+          "sha256": "08f4e237fb9881cda7c02bc220dfa5bfd9ea4dadb4b644a54515aee8bfa07b67"
+        },
+        {
+          "filename": "reactome_pathway_rejections.tsv",
+          "relative_path": "data/processed/context/reactome_pathway_rejections.tsv",
+          "size_bytes": 1272,
+          "sha256": "aa5d90dbbe1c66a24aa8ecc0d1457f49d5c72ad6b146607827195b6f1e3aa025"
+        },
+        {
+          "filename": "cosmic_cgc_v101_hgnc_2026-04-01.tsv",
+          "relative_path": "data/processed/context/cosmic_cgc_v101_hgnc_2026-04-01.tsv",
+          "size_bytes": 176437,
+          "sha256": "b8c2a791fe5c47b618bf988cff4808ad8b80832ea30255125fd6a278da1f7948"
+        },
+        {
+          "filename": "cosmic_gene_rejections.tsv",
+          "relative_path": "data/processed/context/cosmic_gene_rejections.tsv",
+          "size_bytes": 100,
+          "sha256": "28a66f0048eaea7089e50d54657d1aa951ea187ea68c6bda8a564cb587212039"
+        }
+      ]
+    }
+  ]
+}
