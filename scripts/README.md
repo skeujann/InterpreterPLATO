@@ -15,6 +15,7 @@
 python InterpreterPLATO/scripts/query_pair_and_explain.py `
   --drug1 "Drug-A" `
   --drug2 "Drug-B" `
+  --smiles-lookup C:\datasets\drug_smiles.csv `
   --cell-line A549 `
   --disease-label pan_cancer_tier1 `
   --quick
@@ -29,6 +30,7 @@ both SMILES explicitly. Test resolution without contacting PLATO:
 python InterpreterPLATO/scripts/query_pair_and_explain.py `
   --drug1 "Gemcitabine" `
   --drug2 "Paclitaxel" `
+  --smiles-lookup C:\datasets\drug_smiles.csv `
   --resolve-only
 ```
 
@@ -37,9 +39,12 @@ for the explicit SMILES.
 
 The script submits two PLATO form requests sequentially, with a configurable
 `--delay-seconds` pause between them. It saves run-scoped raw responses,
-sidecars, cache entries, `run_manifest.json`, and `explanation.json`. The PLATO
-page path is `pred.html`, but the submitted form requests `tipoout=json`, so
-the archived payload is JSON.
+sidecars, cache entries, and `run_manifest.json`. Same-run hashes are integrity
+checks, not trust anchors. `explanation.json` is written only when caller-
+supplied, independently approved `--trusted-plato-sha256` values match both
+captures and all other gates pass; otherwise the evidence is preserved and the
+command exits with code 2. The PLATO page path is `pred.html`, but the submitted
+form requests `tipoout=json`, so the archived payload is JSON.
 
 ## ChEMBL Target Mapping
 
@@ -88,6 +93,9 @@ The attestation records a user statement only. It is not provider
 authentication, schema verification, or permission to produce a score.
 Without a frozen verified r37 fixture, an imported response remains an audit
 archive and the production CLI must reject scoring.
+The current production schema allowlist is empty, so this restriction applies to
+every imported response; the scoring command below documents the future contract
+and currently fails at the schema-fixture gate.
 
 ## CLI Contract
 
@@ -103,7 +111,8 @@ Allowed optional fields are `cell_line`, `predicted_synergy`, `advanced`,
 `database`, `local_targets`, `drug1_targets`, or `drug2_targets` are rejected.
 Missing output directories are created automatically.
 
-Every run must provide independent raw PLATO export SHA-256 allowlist entries:
+After a reviewed fixture is production-approved, every formal run must also
+provide independent raw PLATO export SHA-256 allowlist entries:
 
 ```powershell
 python InterpreterPLATO/scripts/run_interpreter.py summary `
@@ -116,9 +125,11 @@ python InterpreterPLATO/scripts/run_interpreter.py summary `
   --trusted-plato-sha256 "<drug-b-raw-export-sha256>"
 ```
 
-Cache entries must use current cache schema v3 and pass the controlled r37
-fixture, query-structure, release, raw-export hash, reliable target, explicit
-human, and protein-target gates. Future accepted outputs use
+Cache entries must use current cache schema v3 and pass an independently audited,
+production-allowlisted r37 fixture gate, plus query-structure, release, raw-export
+hash, reliable target, explicit-human, and protein-target gates. No fixture is
+currently approved, so the present candidate cannot pass the first gate. Future
+accepted outputs use
 `result_schema_version=5.1` and
 `credibility.formula_version=evidence_credibility_v4_verified_plato_only`.
 Schema 3/4/5.0 and formula v1/v2/v3 files are historical audit artifacts only

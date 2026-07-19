@@ -45,12 +45,13 @@ VERIFIED_QUERY_BINDING_STATUSES = {
     "plato_single_query_post_verified",
 }
 
-# Fingerprints calculated from independently archived PLATO release fixtures.
-# The first r37 fixture is the Gemcitabine target-fishing JSON response saved
-# under data/raw/plato/r37/golden_fixture/.
-VERIFIED_PLATO_SCHEMA_FINGERPRINTS: Tuple[str, ...] = (
-    "b7fdb3e7b40bf1d26397ceb0182bb122d2f04970797efaf9749b4a11921d3403",
-)
+# Production-approved PLATO schema fixtures.  This allowlist is deliberately
+# empty: the tracked Gemcitabine r37 response remains a parser fixture
+# candidate whose manifest says ``not_yet_allowlisted_for_scoring``.  Its
+# observed field shape may be parsed for regression coverage, but it must not
+# establish provider, release, method, or production schema trust until an
+# independent fixture review is completed.
+VERIFIED_PLATO_SCHEMA_FINGERPRINTS: Tuple[str, ...] = ()
 
 PARSER_VERSION = "4.0"
 CACHE_SCHEMA_VERSION = "3"

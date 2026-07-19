@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import InterpreterPLATO.targets as target_module
 from InterpreterPLATO.scripts import test_compact as compact
 
 
@@ -14,6 +15,10 @@ PLATO_FIXTURE = (
     / "data" / "raw" / "plato" / "r37" / "golden_fixture"
     / "gemcitabine_target_fishing_response_2026-07-16.json"
 )
+
+
+def test_no_production_schema_fixture_is_approved() -> None:
+    assert target_module.VERIFIED_PLATO_SCHEMA_FINGERPRINTS == ()
 
 
 def test_target_parsing_filters() -> None:
@@ -26,6 +31,22 @@ def test_target_parsing_filters() -> None:
 )
 def test_real_plato_r37_fixture_contract() -> None:
     compact.test_real_plato_r37_fixture_contract()
+
+
+@pytest.mark.skipif(
+    not PLATO_FIXTURE.is_file(),
+    reason="external PLATO fixture is intentionally excluded from the code-only repository",
+)
+def test_exact_candidate_is_rejected_even_when_raw_hash_is_trusted(tmp_path: Path) -> None:
+    compact.test_exact_candidate_is_rejected_even_when_raw_hash_is_trusted(tmp_path)
+
+
+@pytest.mark.skipif(
+    not PLATO_FIXTURE.is_file(),
+    reason="external PLATO fixture is intentionally excluded from the code-only repository",
+)
+def test_stale_schema_grant_is_revoked_when_production_allowlist_is_empty(tmp_path: Path) -> None:
+    compact.test_stale_schema_grant_is_revoked_when_production_allowlist_is_empty(tmp_path)
 
 
 def test_strict_api_rejects_local_and_mutable_modes(tmp_path: Path) -> None:

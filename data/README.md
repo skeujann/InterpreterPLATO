@@ -9,14 +9,24 @@ The active/default target source is one archived PLATO response per molecule.
 The previous local demo target fixture has been moved to
 `data/processed/archive/pre_plato_only/` for audit history.
 
+For a version upgrade, staged rebuild, QC review, lock update, PLATO archival,
+and rollback procedure, follow the [data update guide](../docs/DATA_UPDATE_GUIDE.md).
+The shorter [bootstrap guide](../docs/DATA_BOOTSTRAP.md) covers installation
+and reproduction of the currently pinned snapshot only.
+
 ```powershell
-python InterpreterPLATO/scripts/build_context_artifacts.py all
-python InterpreterPLATO/scripts/verify_manifest.py --scope runtime
+python scripts/bootstrap_data.py plan
+python scripts/verify_manifest.py --scope runtime
 ```
 
+These commands assume the current working directory is the InterpreterPLATO
+project root and are read-only. Do not run the context builder directly against
+the live output directory for a version upgrade; use the candidate workflow in
+the data update guide.
+
 Production context is loaded atomically from `data/production_context.json`.
-Each resource should record source, version, `taxid=9606`, identifier namespace,
-HGNC mapping version, file SHA-256, and content SHA-256. Runtime identity is
+Each resource records source, version, `taxid=9606`, identifier namespace,
+HGNC mapping version, and the loaded file's SHA-256. Runtime identity is
 checked before explanation; mismatches fail closed. A source name alone is not
 upstream authentication and must be checked against independent download records
 or trusted manifests.
@@ -35,14 +45,21 @@ PLATO web queries. The interpreter itself does not fetch targets; the dedicated
 helper permits one audited HTTPS form submission at a time. User attestation is
 not provider authentication or schema verification.
 
-A locally acquired Gemcitabine PLATO r37 target-fishing fixture may be placed
-under `data/raw/plato/r37/golden_fixture/`. Raw responses and PDF reports are
-intentionally excluded from this code-only repository. When supplied, the JSON
-fixture verifies the machine-readable `chemblId / nome / score / validato /
-simili` schema; it does not by itself prove every future query. Formal scoring
-still requires query-structure binding and independent raw export SHA-256
-allowlist entries. Do not handcraft JSON to bypass these gates or invent the
-r37 schema.
+A separately controlled data bundle must provide the current Gemcitabine PLATO
+r37 fixture candidate manifest and target-fishing JSON under
+`data/raw/plato/r37/golden_fixture/`. The code repository distributes their lock
+metadata, but not those bytes, the related PDF reports, ordinary query responses,
+or other restricted originals. The manifest still records
+`raw_json_and_pdf_fixture_candidate` and `not_yet_allowlisted_for_scoring`;
+its observed fingerprint is not in the empty production schema allowlist. The
+parser can exercise the machine-readable
+`chemblId / nome / score / validato / simili` contract while reporting
+`schema_fixture_verified=false`; this is not completed source audit or production
+approval. Any publishable sanitized derivative is a separate artifact with its
+own hash. Formal scoring is currently blocked; enabling it requires completed
+fixture review plus a reviewed production-allowlist change, query-structure
+binding, and independent raw export SHA-256 allowlist entries.
+Do not handcraft JSON to bypass these gates or invent the r37 schema.
 
 ## Scoped Locks And Provenance
 

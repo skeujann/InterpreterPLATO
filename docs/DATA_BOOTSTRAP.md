@@ -1,11 +1,16 @@
 # Data bootstrap and offline rebuild
 
+This document installs or reproduces the currently pinned snapshot. For an
+upstream version upgrade, candidate build, biological QC review, lock update,
+PLATO evidence refresh, and rollback, follow the Chinese
+[data update operations manual](DATA_UPDATE_GUIDE.md).
+
 InterpreterPLATO deliberately separates code, runtime context, and source data:
 
 | Layer | Lock | Approximate size | Normal use |
 |---|---|---:|---|
 | Python code and tests | `requirements.lock` | small | install and CI |
-| Production runtime context plus JSON fixture | `data/runtime.lock.json` | 7.64 MiB | default verification |
+| Runtime context plus offline parser-regression candidate fixture | `data/runtime.lock.json` | 7.64 MiB | default verification |
 | Complete local `data/raw` snapshot | `data/source.lock.json` | 35.45 GiB | rebuild and provenance audit |
 | ScoreRI cell-line registry | `data/scoreri_cell_lines.tsv` | 569 bytes | expression rebuild only |
 
@@ -13,6 +18,11 @@ The runtime bundle is not embedded in the Python wheel. The source bundle is
 also not a Python dependency and should not be copied into a wheel or source
 archive. Review `NOTICE` and every upstream license before distributing either
 bundle.
+
+The runtime lock proves byte identity, not fixture approval. The current PLATO
+fixture manifest remains a candidate and the production schema allowlist is
+empty, so formal scoring fails closed until an independently reviewed fixture is
+approved in code, provenance, and tests together.
 
 ## 1. Install the code
 
@@ -23,7 +33,13 @@ python -m venv .venv
 .venv\Scripts\python -m pip install --upgrade pip
 .venv\Scripts\python -m pip install --requirement requirements.lock
 .venv\Scripts\python -m pip install --no-deps --editable .
+. .\.venv\Scripts\Activate.ps1
+python -c "import sys; print(sys.executable)"
 ```
+
+If PowerShell policy blocks activation, keep the environment binding explicit by
+replacing every later `python` with `.venv\Scripts\python` and every console
+entry point with `.venv\Scripts\<entry-point>.exe`.
 
 `requirements.lock` is an exact version lock recorded for Windows x86-64. It
 does not claim cross-platform wheel hashes. Re-resolve and review the lock when
@@ -110,20 +126,24 @@ plato-bootstrap-data rebuild `
 The wrapper calls the existing context and target-mapping builders with every
 input path spelled out. It performs no download and finishes by running the
 runtime lock verifier. Components can be rebuilt separately with
-`--component context` or `--component target-mapping`.
+`--component context` or `--component target-mapping`, but the wrapper still
+verifies all 12 registry inputs before either component. It writes directly to
+the live `data/processed/context` directory and is therefore intended only for
+reproducing the already pinned snapshot, not for upgrading releases.
 
 Generated mapping gzip files use `mtime=0` and atomic replacement so identical
 inputs produce identical bytes. QC reports intentionally contain audit times
 and are not runtime trust anchors.
 
 The rebuild never rewrites a lock automatically. If an intentional source or
-builder change produces different output:
+builder change produces different output, stop using the wrapper and follow
+`DATA_UPDATE_GUIDE.md`:
 
-1. review build QC and biological coverage changes;
-2. review the exact source and code revision;
-3. update `data/production_context.json` and `data/runtime.lock.json` together;
-4. run `python scripts\verify_manifest.py --scope runtime`;
-5. commit code, configs, locks, and the experiment record as one reviewed unit.
+1. build into an inactive candidate directory;
+2. review build QC, rejection sidecars, biological coverage, source, and code;
+3. promote a versioned runtime bundle;
+4. update production configuration and all affected locks in the documented order;
+5. run runtime/source verification and the full test suite.
 
 Do not edit hashes merely to silence a failed check.
 

@@ -20,21 +20,29 @@ InterpreterPLATO 是一个药物组合生物学解释器。它的作用不是重
 - 两个药物的原始 PLATO 响应字节流都被不可变保存，并记录 SHA-256。
 - PLATO 响应中的查询结构必须能和提交给 PLATO 的 SMILES 对上。
 - 结构绑定依赖 RDKit 解析、规范 SMILES 和 InChIKey。
-- 响应 payload 中必须能验证 release 和 target-fishing 方法。
-- 响应 schema 必须通过受控、真实、脱敏的 PLATO r37 golden fixture 验证。
+- release 必须由 payload 明示，或由未来经独立审计、显式批准并进入 production
+  allowlist 的 r37 fixture 绑定；当前没有这样的 fixture。
+- 响应 schema 必须通过上述 production-approved fixture；当前 gate 关闭。
+  受限原件与可发布的脱敏派生副本必须分开管理。
 - 两个药物都必须保留至少一个可靠、明确人源、蛋白类靶点。
 - PPI、表达、通路、疾病等上下文文件必须通过配置中的 SHA-256 校验。
 - 两个 PLATO 原始导出文件的 SHA-256 都必须来自独立可信 allowlist。
 
-本地审计数据包可以放置 Gemcitabine 的 PLATO r37 target-fishing JSON 响应，作为
-解析器的 golden fixture，用来确认 `chemblId / nome / score / validato / simili`
-这套真实字段结构。代码仓库不提交原始响应或 PDF；本地放置位置为：
+当前观察到的 schema fingerprint 来自 Gemcitabine PLATO r37 target-fishing fixture
+candidate，可用于回归检查 `chemblId / nome / score / validato / simili` parser contract。
+它的 manifest 仍标记为 `raw_json_and_pdf_fixture_candidate` 和
+`not_yet_allowlisted_for_scoring`；production schema allowlist 当前为空，因此该 candidate
+会得到 `schema_fixture_verified=false`，不能绑定 PLATO/r37 来源或打开正式计分。fixture
+manifest、target-fishing JSON、PDF 和普通查询响应都不随代码提交；获授权的部署须从单独
+受控数据包把所需 manifest 和 JSON 放到：
 
 ```text
 InterpreterPLATO/data/raw/plato/r37/golden_fixture/
 ```
 
-但这不等于所有 PLATO 导入都可以正式计分。`pred.html` 这类 JSON 响应本身没有
+因此当前版本不能把任何 PLATO 导入用于正式计分。未来 fixture 完成独立来源审核后，必须
+在同一个 reviewed change 中同步更新审批状态、provenance、production fingerprint
+allowlist 和测试。`pred.html` 这类 JSON 响应本身没有
 显式 query SMILES 字段，所以正式解释器仍要求额外满足查询结构绑定、每个药物
 PLATO 原始导出 SHA-256 独立 allowlist、可靠人源蛋白靶点等门禁。手写 JSON、
 手动填写 release、或者声明“这个文件来自 PLATO”，都不能打开正式计分门禁。
@@ -54,6 +62,7 @@ PLATO 原始导出 SHA-256 独立 allowlist、可靠人源蛋白靶点等门禁�
 python InterpreterPLATO/scripts/query_pair_and_explain.py `
   --drug1 "Drug-A" `
   --drug2 "Drug-B" `
+  --smiles-lookup C:\datasets\drug_smiles.csv `
   --cell-line A549 `
   --disease-label pan_cancer_tier1 `
   --quick
@@ -65,6 +74,7 @@ python InterpreterPLATO/scripts/query_pair_and_explain.py `
 python InterpreterPLATO/scripts/query_pair_and_explain.py `
   --drug1 "Gemcitabine" `
   --drug2 "Paclitaxel" `
+  --smiles-lookup C:\datasets\drug_smiles.csv `
   --resolve-only
 ```
 
@@ -77,7 +87,7 @@ python InterpreterPLATO/scripts/query_pair_and_explain.py `
 3. 等待 `--delay-seconds`，默认 3 秒；
 4. 对 drug2 发起一次请求；
 5. 分别保存两个药物的 raw JSON、metadata sidecar、SHA-256 和 cache；
-6. 用这两个 cache 进入 PLATO-only 协同机制解释。
+6. 校验调用方预先提供的独立可信 SHA-256 allowlist；匹配后才进入解释。
 
 默认输出目录：
 
@@ -85,9 +95,17 @@ python InterpreterPLATO/scripts/query_pair_and_explain.py `
 InterpreterPLATO/outputs/plato_pair_runs/<timestamp>_<drug1>__<drug2>/
 ```
 
-目录里会有 `raw_plato/`、`plato_cache/`、`explanation.json` 和 `run_manifest.json`。`pred.html` 是 PLATO 表单页面路径；脚本请求的是 `tipoout=json`，所以本地保存和解析的是 JSON 响应，不是普通 HTML 页面。
+目录里会保存 `raw_plato/`、`plato_cache/` 和 `run_manifest.json`；只有外部
+allowlist 等正式门禁全部通过时才会生成 `explanation.json`。`pred.html` 是 PLATO
+表单页面路径；脚本请求的是 `tipoout=json`，所以本地保存和解析的是 JSON 响应，
+不是普通 HTML 页面。
 
-pair 脚本会把本次捕获的两个原始响应 SHA-256 作为本次运行 allowlist，并在 `run_manifest.json` 中记录 `trusted_export_sha256_source=same_run_single_query_capture`。这适合低频调试和可追踪运行；如果要做正式论文级审计，建议把两个 SHA-256 固化到独立清单后再复跑解释。
+pair 脚本不会把本次捕获的 SHA-256 自动当成可信 allowlist。同次计算的哈希只证明
+保存后的字节未变化，不能证明响应来源。未传入或未匹配
+`--trusted-plato-sha256` 时，脚本会保留两次查询的 raw、sidecar、cache 和 manifest，
+随后以退出码 2 停止，不生成正式解释。首次采集建议先归档，再由独立审核记录批准
+两个原始响应哈希。只有 fixture 审核完成并启用 production schema gate 后，才能使用现有
+cache 和 `run_interpreter.py` 正式计分。
 
 ## 单个药物：查询并归档一个 PLATO 结果
 
@@ -127,11 +145,14 @@ python InterpreterPLATO/scripts/import_plato_result.py `
 
 `--attest-downloaded-from-plato` 只记录用户声明：这个文件是用户从 PLATO 下载的。它不是 PLATO 数字签名，不是来源认证，也不是 schema 验证。
 
-因此，导入成功只代表“本地归档成功”，不代表“可以正式计分”。只有 controlled fixture、结构绑定、release、原始导出 SHA-256、可靠人源蛋白靶点等门禁全部通过后，才允许进入正式解释。
+因此，导入成功只代表“本地归档成功”，不代表“可以正式计分”。只有 production-approved、
+fingerprint 已进入 production allowlist 的 fixture（当前不存在）、结构绑定、release、原始
+导出 SHA-256、可靠人源蛋白靶点等门禁全部通过后，才允许进入正式解释。
 
 ## 运行单对药物解释
 
-在 verified fixture 和两个合格 PLATO cache 都准备好之后，可以运行：
+在来源已审计的 fixture 获得生产批准、production allowlist 已启用，并且两个合格 PLATO
+cache 都准备好之后，才可以运行：
 
 ```powershell
 python InterpreterPLATO/scripts/run_interpreter.py summary `
@@ -250,7 +271,7 @@ InterpreterPLATO/outputs/archive/pre_plato_only/
 
 ## 可复现性
 
-`pyproject.toml` 约束 Python 3.9--3.12；`requirements.lock` 和 `requirements-dev.lock` 固定本次审核环境的依赖版本。RDKit 是必需依赖，因为严格结构绑定依赖 RDKit 完成 SMILES 解析、规范化和 InChIKey 生成。完整的数据获取、外部 ScoreRI 输入和离线重建流程见 `docs/DATA_BOOTSTRAP.md`。
+`pyproject.toml` 约束 Python 3.9--3.12；`requirements.lock` 和 `requirements-dev.lock` 固定本次审核环境的依赖版本。RDKit 是必需依赖，因为严格结构绑定依赖 RDKit 完成 SMILES 解析、规范化和 InChIKey 生成。首次准备当前锁定数据见 [Data bootstrap](docs/DATA_BOOTSTRAP.md)；升级数据版本、重建、审核、更新 locks 和回滚见[数据更新操作手册](docs/DATA_UPDATE_GUIDE.md)。
 
 正式运行时建议同时记录：
 
@@ -272,4 +293,9 @@ python -m pytest InterpreterPLATO/tests
 
 ## 当前最重要的限制
 
-现在还不能把任意 PLATO-like JSON 当成真实 PLATO r37 输出。下一步要真正进入生产计分，需要获得一份真实、可审计、脱敏后的 PLATO r37 导出样本，用它固定 schema fingerprint，并把每个药物原始导出的 SHA-256 写入可信 allowlist。
+程序记录了本地 Gemcitabine r37 fixture candidate 的 schema fingerprint，但 production
+allowlist 当前为空，所以 `schema_fixture_verified=false`，正式评分会 fail closed。fixture
+独立审核并获批后，还必须在同一 reviewed change 中更新 manifest/provenance、代码 allowlist
+和测试；两个药物也要分别通过 query binding 与独立 raw-SHA allowlist。代码发布只包含
+fixture 的 lock 元数据，不包含 manifest 或 JSON 字节；runtime lock 只校验补齐后的字节
+身份，不能替代这些信任门禁。

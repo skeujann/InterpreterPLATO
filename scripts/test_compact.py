@@ -12,6 +12,7 @@ from collections import Counter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+import InterpreterPLATO.targets as target_module
 from InterpreterPLATO import ExplanationPipeline
 from InterpreterPLATO.targets import (
     PlatoPredictionCache,
@@ -101,21 +102,35 @@ def test_target_parsing_filters() -> None:
 
 
 def test_real_plato_r37_fixture_contract() -> None:
-    fixture = Path(__file__).resolve().parents[1] / "data" / "raw" / "plato" / "r37" / "golden_fixture" / "gemcitabine_target_fishing_response_2026-07-16.json"
+    fixture_root = Path(__file__).resolve().parents[1] / "data" / "raw" / "plato" / "r37" / "golden_fixture"
+    fixture = fixture_root / "gemcitabine_target_fishing_response_2026-07-16.json"
+    manifest = json.loads((fixture_root / "fixture_manifest.json").read_text(encoding="utf-8"))
     payload = json.loads(fixture.read_text(encoding="utf-8-sig"))
     parsed = parse_plato_json(payload)
     report = inspect_plato_payload(payload, parsed)
+    assert manifest["status"] == "raw_json_and_pdf_fixture_candidate"
+    assert manifest["production_use"] == "not_yet_allowlisted_for_scoring"
     assert len(parsed) == 60
     assert Counter(target.reliable for target in parsed) == Counter({False: 44, True: 16})
     assert parsed[0].target_chembl_id == "CHEMBL1997"
     assert parsed[0].organism == "Homo sapiens"
     assert parsed[0].target_type == "single protein"
     assert parsed[0].score == 13.0
-    assert report["schema_fixture_verified"] is True
-    assert report["provider_name"] == "PLATO"
-    assert report["provider_method"] == "target_fishing"
-    assert report["reported_release"] == "r37"
-    assert report["reported_release_source"] == "verified_schema_fixture"
+    assert report["schema_fingerprint"] == "b7fdb3e7b40bf1d26397ceb0182bb122d2f04970797efaf9749b4a11921d3403"
+    assert report["schema_fingerprint"] not in target_module.VERIFIED_PLATO_SCHEMA_FINGERPRINTS
+    assert report["schema_fingerprint_allowlisted"] is False
+    assert report["schema_fixture_verified"] is False
+    assert report["adapter"] == "generic_alias_adapter"
+    assert report["provider_name"] == "unknown"
+    assert report["provider_method"] == "unknown"
+    assert report["reported_release"] == ""
+    assert report["reported_release_source"] == ""
+    assert {
+        "provider_not_reported_by_payload",
+        "provider_release_not_reported_by_payload",
+        "prediction_method_not_reported_by_payload",
+        "schema_fingerprint_not_verified_against_fixture",
+    }.issubset(set(report["warnings"]))
     with tempfile.TemporaryDirectory(prefix="interpreterplato-fixture-cache-") as cache_root:
         raw_sha256 = "d2fc1cecf4784261e6674ec21559dd8cbfb60c282ed06c76817884102524484d"
         smiles = "c1cn(c(=O)nc1N)[C@H]2C([C@@H]([C@H](O2)CO)O)(F)F"
@@ -139,8 +154,114 @@ def test_real_plato_r37_fixture_contract() -> None:
             },
         )
         _, metadata = cache.load(smiles)
-        assert metadata["query"]["query_binding_status"] == "plato_single_query_post_verified"
-        assert "plato_query_binding_user_asserted_unverified" not in metadata["parser_warnings"]
+        assert metadata["source"]["sha256"] == raw_sha256
+        assert metadata["schema_fixture_verified"] is False
+        assert metadata["adapter"] == "generic_alias_adapter"
+
+
+def _integrity_failures_with_verified_query(
+    metadata: dict, raw_sha256: str,
+) -> list[str]:
+    """Isolate schema trust from the optional RDKit runtime used by the suite."""
+    cache_metadata = dict(metadata)
+    query = dict(cache_metadata.get("query", {}))
+    query.update({
+        "valid": True,
+        "standardization_status": "rdkit_canonical_identity",
+        "query_binding_status": "plato_single_query_post_verified",
+        "canonical_isomeric_smiles": "fixture-canonical-smiles",
+        "inchikey": "FIXTUREINCHIKEY",
+    })
+    cache_metadata["query"] = query
+    return ExplanationPipeline._plato_cache_integrity_failures(
+        {
+            "provider_release": "r37",
+            "release_mismatch": False,
+            "cache": cache_metadata,
+        },
+        "r37",
+        [raw_sha256],
+    )
+
+
+def test_exact_candidate_is_rejected_even_when_raw_hash_is_trusted(root: Path) -> None:
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "data" / "raw" / "plato" / "r37" / "golden_fixture"
+        / "gemcitabine_target_fishing_response_2026-07-16.json"
+    )
+    raw_sha256 = "d2fc1cecf4784261e6674ec21559dd8cbfb60c282ed06c76817884102524484d"
+    smiles = "c1cn(c(=O)nc1N)[C@H]2C([C@@H]([C@H](O2)CO)O)(F)F"
+    cache_dir = root / "candidate-cache"
+    cache_dir.mkdir()
+    cache = PlatoPredictionCache(cache_dir)
+    cache.import_file(
+        smiles=smiles,
+        result_file=fixture,
+        drug_name="Gemcitabine",
+        provider_release="r37",
+        confirmed_real_export=True,
+        query_binding_evidence={
+            "endpoint": "https://prometheus.farmacia.uniba.it/plato/pred.html",
+            "http_method": "POST",
+            "submitted_smiles": smiles,
+            "response_sha256": raw_sha256,
+            "form": {"smiles": smiles, "tipoout": "json", "tipopred": "mussel"},
+        },
+    )
+    _, metadata = cache.load(smiles)
+    assert metadata["source"]["sha256"] == raw_sha256
+    assert metadata["schema_fixture_verified"] is False
+
+    failures = _integrity_failures_with_verified_query(metadata, raw_sha256)
+    assert "PLATO_r37_schema_fixture_not_verified" in failures
+    assert "PLATO_export_sha256_not_independently_trusted" not in failures
+    assert "payload_query_structure_not_verified" not in failures
+
+
+def test_stale_schema_grant_is_revoked_when_production_allowlist_is_empty(root: Path) -> None:
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "data" / "raw" / "plato" / "r37" / "golden_fixture"
+        / "gemcitabine_target_fishing_response_2026-07-16.json"
+    )
+    payload = json.loads(fixture.read_text(encoding="utf-8-sig"))
+    fingerprint = str(inspect_plato_payload(payload)["schema_fingerprint"])
+    raw_sha256 = "d2fc1cecf4784261e6674ec21559dd8cbfb60c282ed06c76817884102524484d"
+    smiles = "c1cn(c(=O)nc1N)[C@H]2C([C@@H]([C@H](O2)CO)O)(F)F"
+    cache_dir = root / "revoked-cache"
+    cache_dir.mkdir()
+    cache = PlatoPredictionCache(cache_dir)
+    original_allowlist = tuple(target_module.VERIFIED_PLATO_SCHEMA_FINGERPRINTS)
+    try:
+        target_module.VERIFIED_PLATO_SCHEMA_FINGERPRINTS = (fingerprint,)
+        cache.import_file(
+            smiles=smiles,
+            result_file=fixture,
+            drug_name="Gemcitabine",
+            provider_release="r37",
+            confirmed_real_export=True,
+            query_binding_evidence={
+                "endpoint": "https://prometheus.farmacia.uniba.it/plato/pred.html",
+                "http_method": "POST",
+                "submitted_smiles": smiles,
+                "response_sha256": raw_sha256,
+                "form": {"smiles": smiles, "tipoout": "json", "tipopred": "mussel"},
+            },
+        )
+        _, granted = cache.load(smiles)
+        assert granted["schema_fixture_verified"] is True
+
+        target_module.VERIFIED_PLATO_SCHEMA_FINGERPRINTS = ()
+        _, revoked = cache.load(smiles)
+        assert revoked["schema_fixture_verified"] is False
+        assert "cached_parser_report_schema_fixture_verified_mismatch" in revoked["parser_warnings"]
+
+        failures = _integrity_failures_with_verified_query(revoked, raw_sha256)
+        assert "PLATO_r37_schema_fixture_not_verified" in failures
+        assert "cache_or_parser_integrity_failure" in failures
+    finally:
+        target_module.VERIFIED_PLATO_SCHEMA_FINGERPRINTS = original_allowlist
 
 
 def test_strict_api_rejects_local_and_mutable_modes(root: Path) -> None:
@@ -319,8 +440,10 @@ def main() -> int:
         )
         if fixture.is_file():
             test_real_plato_r37_fixture_contract()
+            test_exact_candidate_is_rejected_even_when_raw_hash_is_trusted(root)
+            test_stale_schema_grant_is_revoked_when_production_allowlist_is_empty(root)
         else:
-            print("external PLATO fixture absent: fixture contract skipped")
+            print("external PLATO fixture absent: candidate contract tests skipped")
         test_strict_api_rejects_local_and_mutable_modes(root)
         test_unverified_and_untrusted_plato_exports_fail(root)
         test_strict_positive_fixture_and_integrity(root)

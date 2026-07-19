@@ -21,9 +21,11 @@ In particular:
   necessary authorization.
 * ChEMBL license and required-attribution files are preserved under
   `data/raw/target_mapping/chembl/r37/` in a complete local source bundle.
-* The PLATO JSON/PDF fixture records an observed external service response. Its
-  inclusion for schema auditing does not imply provider endorsement, a digital
-  signature, or a general redistribution grant.
+* The PLATO JSON/PDF fixture candidate records an observed external service
+  response. Retaining it in an authorized local bundle supports provenance and
+  offline parser regression only; it does not constitute schema verification,
+  source audit, production approval, provider endorsement, a digital signature,
+  or a general redistribution grant.
 * `data/scoreri_cell_lines.tsv` contains only 81 sorted unique cell-line names
   derived from a historical ScoreRI table. The original combination table is
   neither required nor distributed by InterpreterPLATO.

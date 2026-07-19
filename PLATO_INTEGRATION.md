@@ -46,6 +46,7 @@ pair-level helper:
 python InterpreterPLATO/scripts/query_pair_and_explain.py `
   --drug1 "Drug-A" `
   --drug2 "Drug-B" `
+  --smiles-lookup C:\datasets\drug_smiles.csv `
   --cell-line A549 `
   --disease-label pan_cancer_tier1
 ```
@@ -57,16 +58,20 @@ It performs:
 3. an optional delay, default 3 seconds;
 4. one PLATO target-fishing JSON form request for drug 2;
 5. run-scoped raw JSON, sidecar, SHA-256, cache, and manifest archival;
-6. strict PLATO-only pair explanation.
+6. external raw-response SHA-256 allowlist validation;
+7. strict PLATO-only pair explanation only after every gate passes.
 
 Use `--resolve-only` to test local name-to-SMILES resolution without contacting
 PLATO. Ambiguous names fail closed and require explicit SMILES.
 
-The two same-run raw response hashes are passed to the interpreter as the
-runtime allowlist and recorded as
-`trusted_export_sha256_source=same_run_single_query_capture`. For stronger
-external audit, freeze those SHA-256 values in an independent manifest and run
-the interpreter again with that allowlist.
+Same-run raw response hashes are capture-integrity checks, not trust anchors.
+The helper never promotes them automatically into the runtime allowlist. If
+caller-supplied `--trusted-plato-sha256` values are absent or do not match both
+captures, it preserves the raw responses, sidecars, cache, and run manifest,
+then exits with code 2 without producing a formal explanation. For a first
+capture, archive the evidence, obtain an independent approval record for both
+raw hashes, and then run `run_interpreter.py` against the existing cache with
+that allowlist.
 
 ## ChEMBL r37 Target-ID Translation
 
@@ -124,23 +129,39 @@ Current cache schema is `3`. A cache entry stores:
 Loading the cache recomputes these values. Legacy v1/v2 cache entries are
 archive-only and cannot enter a formal v5 result.
 
-Production scoring also requires a controlled, real, desensitized r37 response
-fixture. That fixture establishes the release-specific adapter and verifies
-field shapes and semantics. This workspace now archives a Gemcitabine PLATO r37
-target-fishing JSON response under `data/raw/plato/r37/golden_fixture/`, and
-the parser recognizes its `chemblId / nome / score / validato / simili` schema.
+Future production scoring requires a controlled, source-audited, explicitly
+approved r37 response fixture in the production allowlist. Once approved, such a
+fixture can establish the release-specific adapter and parser contract. The
+currently observed fingerprint
+was derived from a locally archived Gemcitabine PLATO r37 target-fishing fixture
+candidate, and the parser can read its observed
+`chemblId / nome / score / validato / simili` contract. Its manifest still says
+`raw_json_and_pdf_fixture_candidate` and `not_yet_allowlisted_for_scoring`.
+The production schema allowlist is therefore empty: this candidate reports
+`schema_fixture_verified=false` and cannot bind provider, release, or method for
+formal scoring. The manifest and JSON are supplied through a separate controlled
+data bundle. This code
+repository contains their lock metadata but does not distribute the fixture
+bytes, related PDFs, ordinary query responses, or restricted originals. A
+publishable sanitized derivative is a different artifact with its own hash.
 
-This fixture verifies the machine-readable target-fishing schema only. The raw
-JSON response does not contain an explicit query SMILES field, so a formal
+Approval must be an explicit reviewed change; the parser does not promote a
+candidate merely because a manifest or payload claims a release. Independent
+review must update the fixture approval record, provenance, production
+fingerprint allowlist, and contract tests together.
+
+This candidate exercises the observed machine-readable target-fishing parser
+contract only. The raw JSON response does not contain an explicit query SMILES
+field, so even after fixture approval a formal
 explanation still requires query-structure binding plus independent raw export
 SHA-256 allowlist entries for each drug. A generic alias parser recognizing
 target-like records, a payload claiming `r37`, or a user attestation cannot
 substitute for those gates.
 
 This document intentionally does not invent r37 provider fields, method fields,
-score semantics, or reliability labels. After a real fixture is obtained, record
-source/license details, review it independently, and then freeze the accepted
-schema fingerprint in code and tests.
+score semantics, or reliability labels. When adding or replacing a fixture,
+record source/license details, review it independently, and only then update the
+production-approved schema fingerprint in code and tests.
 
 ## Per-Drug Strict Conditions
 
@@ -150,8 +171,10 @@ Each drug must:
 - have an RDKit-validated canonical SMILES and InChIKey;
 - hit current cache schema v3;
 - bind the payload query structure to the submitted structure;
-- report the expected release from the payload;
-- pass fixture, raw blob, hash, parser output, and audit metadata checks;
+- report the expected release from the payload, or—after approval—bind it through
+  a source-audited, production-allowlisted release fixture (none exists now);
+- pass the future production-approved fixture gate plus raw blob, hash, parser
+  output, and audit metadata checks;
 - keep only reliable explicit-human protein target records;
 - match an independent allowlist entry for the raw PLATO export SHA-256.
 
