@@ -1,8 +1,11 @@
 # Data bootstrap and offline rebuild
 
-This document installs or reproduces the currently pinned snapshot. For an
-upstream version upgrade, candidate build, biological QC review, lock update,
-PLATO evidence refresh, and rollback, follow the Chinese
+This document installs or reproduces the currently pinned snapshot. Before
+acquiring any dataset, review the Chinese
+[data source and acquisition manual](DATA_SOURCES.md) for official entry points,
+release pins, access restrictions, archive transformations, and checksum
+evidence. For an upstream version upgrade, candidate build, biological QC
+review, lock update, PLATO evidence refresh, and rollback, follow the Chinese
 [data update operations manual](DATA_UPDATE_GUIDE.md).
 
 InterpreterPLATO deliberately separates code, runtime context, and source data:
@@ -65,9 +68,12 @@ STRING, Reactome, HGNC, MSigDB, GDSC, PRISM, OncoKB, GO, and PLATO artifacts
 retain their own upstream terms; this project does not relicense them.
 
 Some official downloads are containers rather than the exact registered input:
-extract the ChEMBL SQLite archive to the registered `chembl_37.db` path, extract
-the Reactome GMT member from its versioned ZIP, and decompress the authorized
-COSMIC payload. Verification always applies to the final registered bytes.
+gunzip the two STRING v12.0 human `.txt.gz` files to the currently registered
+`.txt` paths, extract the ChEMBL SQLite archive to the registered
+`chembl_37.db` path, extract the Reactome GMT member from its versioned ZIP,
+and decompress the authorized COSMIC payload. Verification always applies to
+the final registered bytes. The source manual explains which containers are
+also retained as provenance and which are represented only by observations.
 
 ## 3. ScoreRI cell-line registry
 

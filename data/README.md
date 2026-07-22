@@ -1,6 +1,7 @@
 # Data And Provenance
 
-`data/raw/` stores fixed-version source snapshots. `data/processed/context/`
+`data/raw/` stores byte-pinned source snapshots; some legacy files do not have
+independently verified release provenance. `data/processed/context/`
 stores the human PPI, expression, pathway, and disease context mapped to the
 fixed HGNC release. These files support cancer-context reranking only. They do
 not provide drug targets.
@@ -9,10 +10,13 @@ The active/default target source is one archived PLATO response per molecule.
 The previous local demo target fixture has been moved to
 `data/processed/archive/pre_plato_only/` for audit history.
 
-For a version upgrade, staged rebuild, QC review, lock update, PLATO archival,
-and rollback procedure, follow the [data update guide](../docs/DATA_UPDATE_GUIDE.md).
-The shorter [bootstrap guide](../docs/DATA_BOOTSTRAP.md) covers installation
-and reproduction of the currently pinned snapshot only.
+The [data source and acquisition manual](../docs/DATA_SOURCES.md) identifies
+each official source, pinned release, access boundary, container transformation,
+and checksum evidence level. For a version upgrade, staged rebuild, QC review,
+lock update, PLATO archival, and rollback procedure, follow the
+[data update guide](../docs/DATA_UPDATE_GUIDE.md). The shorter
+[bootstrap guide](../docs/DATA_BOOTSTRAP.md) covers installation and
+reproduction of the currently pinned snapshot only.
 
 ```powershell
 python scripts/bootstrap_data.py plan
@@ -67,8 +71,10 @@ Do not handcraft JSON to bypass these gates or invent the r37 schema.
   production config, its five runtime files, and the offline PLATO JSON fixture.
 - `source.lock.json`: complete 35.45 GiB `data/raw` inventory. It is intentionally
   slow and is checked with `verify_manifest.py --scope source`.
-- `manifest.lock.json`: detailed provenance and licensing companion retained for
-  compatibility; it is not the default runtime verification scope.
+- `manifest.lock.json`: detailed provenance and licensing companion for the
+  principal production sources and selected build artifacts. It is not a
+  complete per-file provenance record for all 40 raw files and is not the
+  default runtime verification scope.
 - `manifest.example.json`: provenance template, not consumed at runtime.
 - `manifest.local.json`: local migration-era snapshot; it cannot replace the
   locked manifest.

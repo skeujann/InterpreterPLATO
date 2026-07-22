@@ -271,7 +271,7 @@ InterpreterPLATO/outputs/archive/pre_plato_only/
 
 ## 可复现性
 
-`pyproject.toml` 约束 Python 3.9--3.12；`requirements.lock` 和 `requirements-dev.lock` 固定本次审核环境的依赖版本。RDKit 是必需依赖，因为严格结构绑定依赖 RDKit 完成 SMILES 解析、规范化和 InChIKey 生成。首次准备当前锁定数据见 [Data bootstrap](docs/DATA_BOOTSTRAP.md)；升级数据版本、重建、审核、更新 locks 和回滚见[数据更新操作手册](docs/DATA_UPDATE_GUIDE.md)。
+`pyproject.toml` 约束 Python 3.9--3.12；`requirements.lock` 和 `requirements-dev.lock` 固定本次审核环境的依赖版本。RDKit 是必需依赖，因为严格结构绑定依赖 RDKit 完成 SMILES 解析、规范化和 InChIKey 生成。每项数据的官方来源、当前 release、获取限制和 checksum 证据见[数据来源与获取说明书](docs/DATA_SOURCES.md)；首次准备当前锁定数据见 [Data bootstrap](docs/DATA_BOOTSTRAP.md)；升级数据版本、重建、审核、更新 locks 和回滚见[数据更新操作手册](docs/DATA_UPDATE_GUIDE.md)。
 
 正式运行时建议同时记录：
 

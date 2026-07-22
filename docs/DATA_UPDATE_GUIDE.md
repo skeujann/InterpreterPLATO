@@ -3,6 +3,10 @@
 本文说明如何在不把原始数据提交到 Git 的前提下，更新 InterpreterPLATO 的癌症上下文、
 ChEMBL→HGNC 靶点映射、ScoreRI 细胞系清单和 PLATO 审计数据。
 
+每项数据的官方入口、当前锁定 release、容器/解压关系、访问限制和 checksum 证据等级
+统一记录在[数据来源与获取说明书](DATA_SOURCES.md)。本手册只描述升级操作；获取新文件
+前应先核对来源说明书，不能仅凭同名文件或本地 SHA 判断上游身份。
+
 所有命令默认从 `InterpreterPLATO` 项目根目录运行：
 
 ```powershell
@@ -22,7 +26,7 @@ JSON 的预期身份，但 fresh clone 不包含这些字节；获授权的部�
 
 ```text
 官方或授权来源
-    ↓ 手工下载、记录来源、校验官方 checksum
+    ↓ 手工下载、记录来源；有则校验上游 checksum，否则明确证据等级
 data/raw/<来源>/<版本>/                 不可变源快照
     ↓ 离线 builder，先写 candidate 目录
 data/processed/candidates/<更新批次>/   候选产物和 QC
@@ -44,7 +48,7 @@ data/raw/... + data/processed/plato_cache/
 |---|---|---|
 | `data/source_registry.json` | 当前重建所需的 12 个输入、默认路径、大小和 SHA-256 | 否，人工审核更新 |
 | `data/source.lock.json` | 完整 `data/raw` 快照和小型构建注册表的字节身份 | 否，人工审核更新 |
-| `data/manifest.lock.json` | 来源、官方 checksum、许可证和构建元数据 | 否，人工审核更新 |
+| `data/manifest.lock.json` | 来源、可用的上游 checksum、许可证、证据等级和构建元数据 | 否，人工审核更新 |
 | `data/production_context.json` | 生产实际加载的 5 个运行时资源 | 否，人工审核更新 |
 | `data/runtime.lock.json` | 生产配置、5 个运行时资源和受控 PLATO fixture 的字节身份 | 否，人工审核更新 |
 | `scripts/verify_manifest.py` | 只读校验现有 lock | 从不改文件 |
@@ -170,6 +174,11 @@ ScoreRI 细胞系名称。DepMap 的 `Model.csv` 和 `OmicsProfiles.csv` 是已�
 
 ## 5. 获取新版本源数据
 
+先按[数据来源与获取说明书](DATA_SOURCES.md)确认准确上游文件、账号/许可边界、容器
+留存方式和当前 provenance 缺口。特别注意：STRING 当前 registry 锁定 gunzip 后文本；
+Reactome、COSMIC 和 ChEMBL 当前构建也需要预先准备各自的提取产物。builder 和
+`bootstrap_data.py` 都不会下载数据，也不会替新 release 生成可信来源记录。
+
 先查看当前预期文件、官方入口和再分发提示：
 
 ```powershell
@@ -226,8 +235,9 @@ candidate registry 通过并完成后续审核，才可提升为正式
   `REACTOME_RELEASE`、`COSMIC_RELEASE`、默认输入路径和派生输出名。
 - `scripts/build_chembl_target_mapping.py` 中的 `HGNC_RELEASE`、
   `CHEMBL_RELEASE`、默认 archive/SQLite/checksum 路径和输出名。
-- `data/source_registry.json` 中相应输入的 path、source、version、size、SHA-256、
-  acquisition URL 和许可说明。
+- `data/source_registry.json` 中相应输入的 path、source（当前 schema 把版本写在
+  source 文本和部分路径中，并无独立 version 字段）、size、SHA-256、acquisition URL
+  和许可说明。
 - 测试里固定的 release、文件名、哈希和生物学基线。
 
 CLI 始终启用 HGNC 硬哈希检查；更新 HGNC 时必须更新
@@ -483,10 +493,10 @@ manifest 内的 `root`，直接以命令行 `--root` 解析 `relative_path`。
 
 lock 是人工审查后的信任锚，建议按下面顺序更新：
 
-1. `source_registry.json`：当前构建所需 12 项的 active path、版本、大小、SHA、URL、政策。
+1. `source_registry.json`：当前构建所需 12 项的 active path、source 中的版本标识、大小、SHA、URL、政策。
 2. `source.lock.json`：当前保留的完整 `data/raw` inventory；更新
    `source_artifact_count`、`source_size_bytes/GiB`、build registry 和来源摘要。
-3. `manifest.lock.json`：详细来源、官方 checksum、许可证、verification status、
+3. `manifest.lock.json`：详细来源、可用的上游 checksum、许可证、verification status、
    构建版本和相关 sidecar 元数据。
 4. 定稿 5 个运行时文件及其最终路径。
 5. 更新 `production_context.json` 的路径、版本、mapping version 和 SHA。
@@ -713,7 +723,7 @@ schema fingerprint 只覆盖 JSON key path 和 value kind，不证明每份未�
 ## 16. 更新完成检查表
 
 - [ ] 新 raw 位于独立版本目录，旧 raw 未被覆盖。
-- [ ] 官方 checksum、许可证和 attribution 已保存并核验。
+- [ ] 可用的上游 checksum、许可证和 attribution 已保存并核验；无上游 checksum 的来源已明确证据等级和限制。
 - [ ] release 常量、HGNC 硬哈希、默认路径和输出名已同步。
 - [ ] source registry 的 active inputs 全部通过。
 - [ ] candidate 中 context 和 target mapping 均构建成功。
