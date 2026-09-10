@@ -82,7 +82,7 @@ def archive_verified_plato_cache(
 
 
 def strict_pipeline(cache_dir: Path, trusted_hashes: Iterable[str], **config: Any) -> ExplanationPipeline:
-    return ExplanationPipeline(config={
+    effective_config = {
         "plato": {
             "cache_dir": str(cache_dir),
             "trusted_export_sha256": list(trusted_hashes),
@@ -97,4 +97,8 @@ def strict_pipeline(cache_dir: Path, trusted_hashes: Iterable[str], **config: An
             "stability_randomizations": 3,
         },
         **config,
-    })
+    }
+    # Synthetic fixtures must never be serialized as thesis research evidence.
+    effective_config["run_mode"] = "test"
+    effective_config["generated_from_test_fixture"] = True
+    return ExplanationPipeline(config=effective_config)

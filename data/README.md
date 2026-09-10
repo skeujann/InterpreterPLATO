@@ -42,27 +42,27 @@ Default location: `data/processed/plato_cache/`.
 Current cache schema is `3`. It preserves immutable raw response bytes and
 their SHA-256, plus normalized payload, normalized targets, query binding,
 parser report, and audit metadata. Old cache schema v1/v2 entries are
-archive-only and cannot be used for formal v5.1 output.
+archive-only and cannot be used for current research-hypothesis analysis.
 
 Archived files come from manual or explicitly user-triggered single-molecule
 PLATO web queries. The interpreter itself does not fetch targets; the dedicated
 helper permits one audited HTTPS form submission at a time. User attestation is
 not provider authentication or schema verification.
 
-A separately controlled data bundle must provide the current Gemcitabine PLATO
-r37 fixture candidate manifest and target-fishing JSON under
-`data/raw/plato/r37/golden_fixture/`. The code repository distributes their lock
-metadata, but not those bytes, the related PDF reports, ordinary query responses,
-or other restricted originals. The manifest still records
-`raw_json_and_pdf_fixture_candidate` and `not_yet_allowlisted_for_scoring`;
-its observed fingerprint is not in the empty production schema allowlist. The
-parser can exercise the machine-readable
+The code-only repository excludes the current Gemcitabine PLATO r37 fixture
+candidate manifest and target-fishing JSON. Authorized deployments restore them
+from a separately controlled data bundle to `data/raw/plato/r37/golden_fixture/`.
+The manifest still records `raw_json_and_pdf_fixture_candidate` and
+`not_yet_allowlisted_for_scoring`. Its observed fingerprint is not in the empty
+production schema allowlist, so the parser can exercise the machine-readable
 `chemblId / nome / score / validato / simili` contract while reporting
-`schema_fixture_verified=false`; this is not completed source audit or production
-approval. Any publishable sanitized derivative is a separate artifact with its
-own hash. Formal scoring is currently blocked; enabling it requires completed
-fixture review plus a reviewed production-allowlist change, query-structure
-binding, and independent raw export SHA-256 allowlist entries.
+`schema_fixture_verified=false`. This is not completed source audit or production
+approval. The related PDFs,
+ordinary query responses, and other restricted originals are not distributed.
+Any publishable sanitized derivative is a separate artifact with its own hash.
+Formal scoring is currently blocked; enabling it requires completed fixture
+review plus a reviewed production-allowlist change, query-structure binding, and
+independent raw export SHA-256 allowlist entries.
 Do not handcraft JSON to bypass these gates or invent the r37 schema.
 
 ## Scoped Locks And Provenance

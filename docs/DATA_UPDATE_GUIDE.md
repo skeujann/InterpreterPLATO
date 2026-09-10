@@ -1,7 +1,8 @@
 # InterpreterPLATO 数据更新操作手册
 
-本文说明如何在不把原始数据提交到 Git 的前提下，更新 InterpreterPLATO 的癌症上下文、
-ChEMBL→HGNC 靶点映射、ScoreRI 细胞系清单和 PLATO 审计数据。
+本文说明如何在不把普通原始数据提交到 Git 的前提下，更新 InterpreterPLATO 的癌症
+上下文、ChEMBL→HGNC 靶点映射、ScoreRI 细胞系清单和 PLATO 审计数据；当前已跟踪的
+小型受控 fixture 例外会在下文单独说明。
 
 每项数据的官方入口、当前锁定 release、容器/解压关系、访问限制和 checksum 证据等级
 统一记录在[数据来源与获取说明书](DATA_SOURCES.md)。本手册只描述升级操作；获取新文件
@@ -13,14 +14,15 @@ ChEMBL→HGNC 靶点映射、ScoreRI 细胞系清单和 PLATO 审计数据。
 Set-Location C:\path\to\ScoredRI\InterpreterPLATO
 ```
 
-代码仓库只保存代码、构建脚本、配置和完整性清单。`data/raw/`、`data/processed/`、
-`outputs/`、PLATO 响应和模型文件都应留在本地数据包，不得因为更新数据而提交到 Git。
-runtime/source locks 虽然记录 fixture manifest candidate 和 100280-byte target-fishing
-JSON 的预期身份，但 fresh clone 不包含这些字节；获授权的部署必须从单独受控数据包把
-它们补到 `data/raw/plato/r37/golden_fixture/` 后再校验。production schema allowlist 当前
-为空，该 candidate 可供 parser 回归但不能打开正式计分；每药物 raw-SHA allowlist 是审核
-通过后仍需满足的另一道门禁。受限原件与可发布
-的脱敏派生副本必须分开管理，普通查询数据也不能仿照 fixture 路径提交。
+仓库以代码、构建脚本、配置和完整性清单为主。`data/raw/`、`data/processed/`、
+`outputs/`、普通药物的 PLATO 响应和模型文件都应留在本地数据包，不得因为更新数据而
+提交到 Git。当前仓库有且仅有一个经过显式放行的受控数据例外：
+`data/raw/plato/r37/golden_fixture/` 下的 fixture manifest 和 100280-byte target-fishing
+JSON；两者是当前 parser schema anchor candidate，并由 source/runtime locks 固定，但这
+不等于已通过生产来源审计。production schema allowlist 当前为空，该 candidate 不能打开
+正式计分；每药物 raw-SHA allowlist 是审核通过后仍需满足的另一道门禁。PDF、其他查询响应和受限
+原件不随代码提交。受限原件与可发布的脱敏派生副本必须分开管理；新增或替换例外
+必须重新经过许可、脱敏和独立发布审查，不能把普通查询数据仿照该目录提交。
 
 ## 1. 先理解数据边界
 
@@ -142,8 +144,9 @@ ChEMBL 只把 PLATO 已给出的 ChEMBL target ID 翻译为 HGNC symbol，不能
 
 当前锁定基线为 HGNC `2026-04-01`、STRING `v12.0`、DepMap expression
 `26Q1`、Reactome `v96`、COSMIC CGC `v101`、ChEMBL `r37`，以及 81 个
-ScoreRI 细胞系名称。DepMap 的 `Model.csv` 和 `OmicsProfiles.csv` 是已锁定但文件名
-无版本的本地快照，不能仅凭所在目录推断它们与新 expression release 匹配。
+ScoreRI 细胞系名称。DepMap 的 expression、`Model.csv` 和 `OmicsProfiles.csv`
+已统一落在 `data/raw/cell_line_context/depmap/26Q1/`；其中 metadata 两个文件于
+2026-07-23 从 26Q1 release 页面重新取得，size/SHA 与先前锁定快照一致。
 
 主要转换规则：
 
@@ -298,8 +301,8 @@ $ordered.Count
 5. 用新的 `--expected-score-cell-lines <N>` 重建表达层并检查每个拒绝原因。
 
 如果唯一名称数不再是 81，还要同步更新 wrapper、测试和文档中的预期值。DepMap
-expression、Model、Profiles 必须来自同一 release；当前无版本目录下的 Model/Profiles
-只是已锁本地快照，不能在没有独立证据时把它们标成 26Q1。
+expression、Model、Profiles 必须来自同一 release；当前基线三份文件均位于 26Q1
+版本目录，下一次升级也必须先补齐同 release 的三份输入和 provenance 后再构建。
 
 代码 pin、candidate registry 和可选的 ScoreRI 清单全部定稿后，在构建前验证新
 registry 的全部 12 项：
@@ -507,7 +510,7 @@ lock 是人工审查后的信任锚，建议按下面顺序更新：
 
 - `production_configuration`；
 - PPI、expression、pathways、disease、target mapping 五个 runtime artifacts；
-- 单独受控数据包提供的 PLATO fixture manifest 和 JSON；fresh clone 不包含这些字节；
+- 受控 PLATO fixture manifest 和 JSON 的字节身份；code-only fresh clone 不含原件，须从获授权的数据包单独恢复；
 - 各分组字节数和 `total_size_bytes`。
 
 其中 `total_size_bytes` 是 lock 中所有带 `relative_path` 和 digest 的记录大小之和。
@@ -568,10 +571,10 @@ git check-ignore -v data\processed\<file>
 git check-ignore -v outputs\<file>
 ```
 
-允许提交的是代码、文档、配置、registry 和 lock 元数据；不要提交 raw/processed 字节、
-PLATO 响应、PDF、缓存、模型权重或运行输出。受控 fixture 也由单独数据包发布；新增或
-替换 fixture 须通过许可、脱敏和独立发布审查，并同步更新外部 fixture manifest、测试及
-代码仓库中的 locks。
+允许提交的是代码、文档、配置、registry 和 lock 元数据；不要提交普通 raw/processed
+字节、普通查询的 PLATO 响应、PDF、缓存、模型权重或运行输出。本代码发布也不包含
+fixture manifest 和 target-fishing JSON 原件；locks 只记录其预期身份。
+新增、替换或另外发布 fixture 仍须通过许可、脱敏和独立发布审查，并同步审核测试及 locks。
 
 ## 13. 更新普通药物的 PLATO 数据
 
@@ -735,5 +738,5 @@ schema fingerprint 只覆盖 JSON key path 和 value kind，不证明每份未�
 - [ ] runtime、source、显式 provenance manifest 和 pytest 全部通过。
 - [ ] 代表性 production load/smoke test 通过。
 - [ ] 未完成 fixture 独立审核时，production schema allowlist 为空且严格评分 fail closed。
-- [ ] Git 中没有 raw、processed、PLATO 响应、模型或输出；受控 fixture 由独立数据包提供。
+- [ ] Git 中没有 raw、processed、普通 PLATO 响应、模型或输出；受控 fixture 例外已单独审批。
 - [ ] 回滚所需的上一版配置、lock 和 runtime release 仍可用。

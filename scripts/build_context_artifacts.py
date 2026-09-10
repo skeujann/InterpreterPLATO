@@ -59,8 +59,8 @@ DEFAULT_DEPMAP_EXPRESSION = (
     RAW_ROOT / "cell_line_context" / "depmap" / DEPMAP_RELEASE
     / "OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv"
 )
-DEFAULT_DEPMAP_MODEL = RAW_ROOT / "cell_line_context" / "depmap" / "Model.csv"
-DEFAULT_DEPMAP_PROFILES = RAW_ROOT / "cell_line_context" / "depmap" / "OmicsProfiles.csv"
+DEFAULT_DEPMAP_MODEL = RAW_ROOT / "cell_line_context" / "depmap" / DEPMAP_RELEASE / "Model.csv"
+DEFAULT_DEPMAP_PROFILES = RAW_ROOT / "cell_line_context" / "depmap" / DEPMAP_RELEASE / "OmicsProfiles.csv"
 DEFAULT_SCORE_COMBOS = PACKAGE_ROOT / "data" / "scoreri_cell_lines.tsv"
 DEFAULT_REACTOME = RAW_ROOT / "pathways" / "reactome" / "ReactomePathways.gmt"
 DEFAULT_COSMIC = (

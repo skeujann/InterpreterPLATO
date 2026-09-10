@@ -89,8 +89,8 @@ python scripts\bootstrap_data.py plan
 | `string_info` | STRING v12.0 human protein info | 解压后的 `9606.protein.info.v12.0.txt` | B：官方版本列表 + 本地 SHA |
 | `string_links` | STRING v12.0 human full links | 解压后的 `9606.protein.links.full.v12.0.txt` | B：官方版本列表 + 本地 SHA |
 | `depmap_expression` | DepMap Public 26Q1 expression | `OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv` | B：release 文件页 + 本地 SHA |
-| `depmap_model` | DepMap Model metadata legacy snapshot | 无版本路径下的 `Model.csv` | C：仅本地字节快照 |
-| `depmap_profiles` | DepMap OmicsProfiles legacy snapshot | 无版本路径下的 `OmicsProfiles.csv` | C：仅本地字节快照 |
+| `depmap_model` | DepMap Public 26Q1 Model metadata | `data/raw/cell_line_context/depmap/26Q1/Model.csv` | B：release 文件页 + 本地 SHA |
+| `depmap_profiles` | DepMap Public 26Q1 OmicsProfiles metadata | `data/raw/cell_line_context/depmap/26Q1/OmicsProfiles.csv` | B：release 文件页 + 本地 SHA |
 | `scoreri_cell_lines` | ScoreRI 历史组合表的唯一细胞系名 | `data/scoreri_cell_lines.tsv` | D：本地派生 registry |
 | `reactome` | Reactome v96 pathways | ZIP 唯一成员 `ReactomePathways.gmt` | A2：官方版本 URL 容器/成员复核 |
 | `cosmic` | COSMIC CGC v101 GRCh38 | tar -> `.tsv.gz` -> `.tsv` | A1：官方 archive SHA 已匹配 |
@@ -152,26 +152,26 @@ HGNC 被 PPI、表达、Reactome、COSMIC 和 ChEMBL mapping 五路共同复用�
 ### 5.3 DepMap：表达矩阵和模型元数据
 
 - 当前 expression 文件页：[DepMap Public 26Q1 expression](https://depmap.org/portal/data_page/?file=OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv&release=DepMap+Public+26Q1)
+- 当前 Model 文件页：[DepMap Public 26Q1 Model](https://depmap.org/portal/data_page/?file=Model.csv&release=DepMap+Public+26Q1)
+- 当前 OmicsProfiles 文件页：[DepMap Public 26Q1 OmicsProfiles](https://depmap.org/portal/data_page/?file=OmicsProfiles.csv&release=DepMap+Public+26Q1)
 - 当前 release 入口：[DepMap Public 26Q1 all data](https://depmap.org/portal/data_page/?release=DepMap+Public+26Q1&tab=allData)
-- expression 当前落盘：
-  `data/raw/cell_line_context/depmap/26Q1/OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv`
+- 当前落盘：
+  `data/raw/cell_line_context/depmap/26Q1/OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv`、
+  `data/raw/cell_line_context/depmap/26Q1/Model.csv`、
+  `data/raw/cell_line_context/depmap/26Q1/OmicsProfiles.csv`
 - 数据语义：源值为 `log2(TPM + 1)` 的 human protein-coding expression；builder
   不应再次取对数。
 - 访问、条款和引用以所选 release 页面当时的提示为准。
 
-当前 `Model.csv` 和 `OmicsProfiles.csv` 是一个不可忽略的 provenance 缺口：它们在
-无版本目录中，只有固定本地 size/SHA，仓库没有足够证据把它们认证为 26Q1。因此：
+`Model.csv` 和 `OmicsProfiles.csv` 已于 2026-07-23 从 DepMap Public 26Q1 release
+页面重新取得；本地 size/SHA 与先前锁定快照完全一致，因此当前表达层可以把三份
+DepMap 输入作为同一 26Q1 批次处理。没有匹配到独立上游 checksum，证据等级仍为
+B：release 页面确认文件身份，本地 SHA 固定取得后的字节。
 
-1. 精确复现当前基线只能从受控旧 source bundle 按哈希恢复这两个文件；不能从 portal
-   任意下载一个同名文件冒充当前字节。
-2. 新升级必须从同一个 DepMap release 同批获取 expression、`Model.csv` 和
-   `OmicsProfiles.csv`，保存 release 页面、下载时间、文件元数据和条款快照。
-3. 新文件统一放到 `data/raw/cell_line_context/depmap/<release>/`，不再延续无版本路径。
-4. 三份文件交叉验证 default RNA profile 后再构建；不能仅凭所在目录宣称 release
-   一致。
-
-26Q1 portal 当前列出这些同名 metadata，并不能反向证明本地 legacy bytes 就是该
-release。若重新取得后字节不同，应作为新 candidate 评估，不能覆盖旧 lock。
+新升级仍必须从同一个 DepMap release 同批获取 expression、`Model.csv` 和
+`OmicsProfiles.csv`，保存 release 页面、下载时间、文件元数据和条款快照。新文件统一
+放到 `data/raw/cell_line_context/depmap/<release>/`，三份文件交叉验证 default RNA
+profile 后再构建；不能仅凭同名文件或本地 SHA 宣称 release 一致。
 
 当前表达基线覆盖 ScoreRI registry 的 70 个 verified-default 细胞系；10 个已映射模型
 没有 verified default expression，`SR` 仍明确未解析。这个缺口必须保留在 QC 中，不能
@@ -193,11 +193,10 @@ release。若重新取得后字节不同，应作为新 candidate 评估，不�
 如果需要重建 81 个名字，应由原数据保管者提供原表和上述哈希，并把实际 ScoreRI code
 commit、文件相对路径、取得时间和许可一起记入新 provenance。
 
-另一个需要保留的历史差异是：现有 `depmap_expression_qc.json`/`build_qc.json` 来自旧
-流程直接读取完整 `combo_data.tsv`；当前 bootstrap 则把 569-byte
-`scoreri_cell_lines.tsv` 传给 builder。两者可产生相同的表达矩阵值，但新建 QC 中的
-输入路径和输入哈希会改变。重建后必须审核并重锁 QC/manifest，不能宣称旧 QC 字节可
-直接复现。
+当前 `depmap_expression_qc.json`/`build_qc.json` 已由 2026-07-23 的完整 `all` 重建
+刷新：builder 读取 569-byte `data/scoreri_cell_lines.tsv`，不再依赖外部
+`ScoreRI/data/combo_data.tsv`。表达矩阵主产物 hash 与旧基线一致；QC 中的输入路径和
+输入哈希反映当前可独立复现的 registry。
 
 ### 5.5 Reactome：通路集合
 
@@ -365,9 +364,9 @@ data/raw/<用途>/<来源>/<release>/
   builder 最终消费的无损解压产物
 ```
 
-Reactome 的无版本目录和 DepMap metadata 的无版本目录都是 legacy，不应成为新版本
-模板。不要使用 `latest/`，不要覆盖旧 release，也不要把账号、Cookie、token 或签名
-URL 写进记录。
+Reactome 的无版本目录是 legacy，不应成为新版本模板；DepMap metadata 已改为随
+expression 放入 release 目录，后续也应保持这个布局。不要使用 `latest/`，不要覆盖旧
+release，也不要把账号、Cookie、token 或签名 URL 写进记录。
 
 每次获取至少记录：
 

@@ -14,16 +14,27 @@ import math
 import pandas as pd
 
 from .advanced import AdvancedResult, explain_advanced
+from .batch_statistics import apply_batch_fdr
 from .context import CancerContext, ContextScore
-from .mechanism import MechanismResult, classify_mechanism
+from .mechanism import MechanismResult, classify_mechanism, STATISTICAL_CONTRACT_VERSION
 from .targets import (
     CACHE_SCHEMA_VERSION,
+    PARSER_VERSION,
     FusedTarget,
     PlatoPredictionCache,
     ChemblTargetMapper,
     TargetResolver,
     VERIFIED_QUERY_BINDING_STATUSES,
     standardize_smiles,
+)
+from .research import (
+    ALLOWED_RUN_MODES,
+    DEFAULT_RUN_MODE,
+    RESEARCH_CONTRACT_VERSION,
+    attach_result_payload_sha256,
+    build_research_audit,
+    plato_resolution_audit,
+    write_json_with_sha256,
 )
 
 
@@ -349,7 +360,7 @@ class CombinationExplanation:
             "P1": "high_overlap",
             "P2": "complementary_exposure",
             "P4": "single_exposure",
-            "P4_edge": "overlapping_single_exposure",
+            "P3": "overlapping_single_exposure",
         }
         network_supported = bool(
             cheng.get("valid")
@@ -360,8 +371,53 @@ class CombinationExplanation:
         network_score = self.mechanism.confidence if self.mechanism.mechanism_type == network_type else 0.0
         functional_score = self.mechanism.metrics.get("functional_pattern_score")
         mechanism_score_tier = "high" if self.mechanism.confidence >= 0.75 else "medium" if self.mechanism.confidence >= 0.45 else "low"
-        return {
-            "result_schema_version": "5.1",
+        run_mode = str(
+            serialized_metadata.get("run_mode", DEFAULT_RUN_MODE)
+        ).strip().lower()
+        if run_mode not in ALLOWED_RUN_MODES:
+            raise ValueError(
+                f"serialized run_mode must be one of {sorted(ALLOWED_RUN_MODES)}, "
+                f"got {run_mode!r}"
+            )
+        generated_from_test_fixture = bool(
+            serialized_metadata.get("generated_from_test_fixture", False)
+        )
+        if generated_from_test_fixture and run_mode != "test":
+            raise ValueError(
+                "generated_from_test_fixture=true may be serialized only in test mode"
+            )
+        raw_reasons = serialized_metadata.get(
+            "formal_result_eligibility_reasons", []
+        )
+        if isinstance(raw_reasons, (list, tuple, set)):
+            eligibility_reasons = [str(value) for value in raw_reasons if str(value)]
+        else:
+            eligibility_reasons = [str(raw_reasons)] if str(raw_reasons) else []
+        eligibility_reasons = list(dict.fromkeys([
+            "thesis_research_hypothesis_only",
+            *eligibility_reasons,
+        ]))
+        serialized_metadata["run_mode"] = run_mode
+        serialized_metadata["formal_result_eligible"] = False
+        serialized_metadata["formal_result_eligibility_reasons"] = eligibility_reasons
+        serialized_metadata["generated_from_test_fixture"] = generated_from_test_fixture
+        audit = deepcopy(serialized_metadata.pop("audit", {}))
+        payload = {
+            "result_schema_version": "5.2",
+            "statistical_contract_version": STATISTICAL_CONTRACT_VERSION,
+            "network_statistics": cheng,
+            "research_contract_version": RESEARCH_CONTRACT_VERSION,
+            "run_mode": run_mode,
+            # Research contract 1.0 has no upgrade path to a formal mechanism claim.
+            "formal_result_eligible": False,
+            "formal_result_eligibility_reasons": eligibility_reasons,
+            "generated_from_test_fixture": generated_from_test_fixture,
+            "interpretation_scope": {
+                "claim": "auditable_post_hoc_biological_mechanism_hypothesis",
+                "not_a_model_causal_explanation": True,
+                "not_experimental_validation": True,
+                "not_clinical_efficacy_probability": True,
+            },
             "drug1_name": self.drug1_name,
             "drug2_name": self.drug2_name,
             "cell_line": self.cell_line,
@@ -384,6 +440,7 @@ class CombinationExplanation:
             },
             "network_pattern": cheng.get("pattern", "insufficient_network_support"),
             "network_pair_interaction_supported": bool(cheng.get("pair_interaction_supported", False)),
+            "network_both_drugs_disease_proximity_supported": bool(cheng.get("both_drugs_disease_proximity_supported", False)),
             "mechanism_type": self.mechanism.mechanism_type,
             "mechanism_score": self.mechanism.confidence,
             "mechanism_score_semantics": self.mechanism.score_semantics,
@@ -391,6 +448,8 @@ class CombinationExplanation:
             "evidence_credibility_score": serialized_credibility.get("evidence_credibility_score"),
             "credibility_status": serialized_credibility.get("status", "insufficient"),
             "validation": {
+                "single_pair_mechanism_supported": bool(serialized_credibility.get("single_pair_mechanism_supported", serialized_credibility.get("mechanism_supported", False))),
+                "batch_mechanism_supported": serialized_credibility.get("batch_mechanism_supported"),
                 "integrity_valid": bool(serialized_credibility.get("integrity_valid", False)),
                 "mechanism_supported": bool(serialized_credibility.get("mechanism_supported", False)),
                 "externally_validated": bool(serialized_credibility.get("externally_validated", False)),
@@ -444,8 +503,10 @@ class CombinationExplanation:
                 "summary": self._summary(),
             },
             "warning_flags": self.warning_flags(),
+            "audit": audit,
             "metadata": serialized_metadata,
         }
+        return attach_result_payload_sha256(payload)
 
     def print_summary(self) -> None:
         print(self._summary())
@@ -477,6 +538,22 @@ class SynergyInterpreter:
                 loaded = yaml.safe_load(text) or {}
         explicit_config = self._merge_config(loaded, dict(config or {}))
         self.config = self._merge_config(self.default_config(package), explicit_config)
+        run_mode = str(self.config.get("run_mode", DEFAULT_RUN_MODE)).strip().lower()
+        if run_mode not in ALLOWED_RUN_MODES:
+            raise ValueError(
+                f"run_mode must be one of {sorted(ALLOWED_RUN_MODES)}, got {run_mode!r}"
+            )
+        generated_from_test_fixture = self.config.get(
+            "generated_from_test_fixture", False
+        )
+        if not isinstance(generated_from_test_fixture, bool):
+            raise TypeError("generated_from_test_fixture must be true or false")
+        if generated_from_test_fixture and run_mode != "test":
+            raise ValueError(
+                "generated_from_test_fixture=true is allowed only when run_mode='test'"
+            )
+        self.config["run_mode"] = run_mode
+        self.config["generated_from_test_fixture"] = generated_from_test_fixture
         target_mode = str(self.config.get("target_mode", "plato_only")).strip().lower()
         if target_mode != self._PRODUCT_TARGET_MODE:
             raise ValueError(
@@ -520,6 +597,8 @@ class SynergyInterpreter:
     @staticmethod
     def default_config(package: Path) -> Dict[str, Any]:
         return {
+            "run_mode": DEFAULT_RUN_MODE,
+            "generated_from_test_fixture": False,
             "target_mode": "plato_only",
             "database": None,
             "default_cell_line": "default",
@@ -1628,6 +1707,9 @@ class SynergyInterpreter:
             tolerance_fraction = min(0.01, configured_tolerance)
             evaluations: List[Dict[str, Any]] = []
             rejected = 0
+            duplicate_perturbations: List[Dict[str, Any]] = []
+            seen_identities = set()
+            missing_identities = 0
             raw_perturbations = supplied.get("perturbations", [])
             if not isinstance(raw_perturbations, list):
                 raw_perturbations = []
@@ -1650,6 +1732,49 @@ class SynergyInterpreter:
                 if not kind and isinstance(perturbation, Mapping):
                     kind = str(perturbation.get("kind") or "").strip()
                 kind = kind or "precomputed"
+                identity_data = dict(item)
+                if isinstance(perturbation, Mapping):
+                    identity_data.update(perturbation)
+                semantic_identity: Dict[str, Any] = {}
+                for canonical, aliases in {
+                    "target": ("target_id", "target", "target_symbol", "gene", "gene_symbol"),
+                    "genes": ("genes", "targets"),
+                    "module": ("module_id", "module", "pathway_id", "pathway"),
+                    "path": ("path", "path_id"),
+                }.items():
+                    for alias in aliases:
+                        identity_value = identity_data.get(alias)
+                        if isinstance(identity_value, str) and identity_value.strip():
+                            semantic_identity[canonical] = identity_value.strip()
+                            break
+                        if isinstance(identity_value, (list, tuple)):
+                            members = [
+                                member.strip() for member in identity_value
+                                if isinstance(member, str) and member.strip()
+                            ]
+                            if members:
+                                semantic_identity[canonical] = (
+                                    sorted(set(members)) if canonical == "genes" else members
+                                )
+                                break
+                explicit_id = identity_data.get("perturbation_id", identity_data.get("id"))
+                explicit_id = explicit_id.strip() if isinstance(explicit_id, str) else ""
+                identity_keys = []
+                if semantic_identity:
+                    identity_keys.append(json.dumps({
+                        "kind": kind,
+                        "drug": str(identity_data.get("drug") or "").strip(),
+                        **semantic_identity,
+                    }, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+                if explicit_id:
+                    identity_keys.append(json.dumps({"perturbation_id": explicit_id}, sort_keys=True))
+                if any(identity in seen_identities for identity in identity_keys):
+                    rejected += 1
+                    duplicate_perturbations.append(self._json_safe(item))
+                    continue
+                seen_identities.update(identity_keys)
+                if not identity_keys:
+                    missing_identities += 1
                 relative_change = abs(delta) / max(1.0, abs(baseline))
                 supports = delta < 0 if stronger_is_higher else delta > 0
                 evaluations.append({
@@ -1660,42 +1785,53 @@ class SynergyInterpreter:
                     "relative_prediction_change": relative_change,
                     "supports_explanation": supports,
                     "material_support": bool(supports and relative_change >= min_relative_change),
+                    "identity_verified": bool(identity_keys),
+                    "canonical_identity": identity_keys[0] if identity_keys else None,
                 })
             status = "evaluated" if baseline is not None and evaluations else "partial"
-            provided_prediction = self._numeric_score(
+            claimed_provided_prediction = self._numeric_score(
                 supplied.get("provided_prediction", predicted_synergy)
             )
-            provided_prediction = predicted_synergy if provided_prediction is None else provided_prediction
+            provided_prediction = predicted_synergy
             baseline_difference = (
                 baseline - provided_prediction if baseline is not None else None
             )
             baseline_tolerance = tolerance_fraction * max(1.0, abs(provided_prediction))
+            caller_prediction_consistent = bool(
+                claimed_provided_prediction is not None
+                and abs(claimed_provided_prediction - provided_prediction) <= baseline_tolerance
+            )
             baseline_consistent = bool(
                 baseline_difference is not None
                 and abs(baseline_difference) <= baseline_tolerance
+                and caller_prediction_consistent
             )
             support_rate = (
                 sum(item["supports_explanation"] for item in evaluations) / len(evaluations)
                 if evaluations else None
             )
+            identified_evaluations = [item for item in evaluations if item["identity_verified"]]
             material_support_rate = (
-                sum(item["material_support"] for item in evaluations) / len(evaluations)
-                if evaluations else None
+                sum(item["material_support"] for item in identified_evaluations) / len(identified_evaluations)
+                if identified_evaluations else None
             )
-            perturbation_type_count = len({item["kind"] for item in evaluations})
+            perturbation_type_count = len({item["kind"] for item in identified_evaluations})
             meets_thresholds = bool(
                 status == "evaluated"
                 and baseline_consistent
-                and len(evaluations) >= min_perturbations
+                and len(identified_evaluations) >= min_perturbations
                 and perturbation_type_count >= 2
                 and float(material_support_rate or 0.0) >= 2.0 / 3.0
             )
             return {
                 "status": status,
                 "method": str(supplied.get("method") or "").strip() or "precomputed_model_attribution",
-                "interpretation_type": "model_linked_sensitivity" if status == "evaluated" else "post_hoc_biological_hypothesis",
+                "interpretation_type": "model_linked_sensitivity" if status == "evaluated" and baseline_consistent else "post_hoc_biological_hypothesis",
                 "baseline_prediction": baseline if baseline is not None else predicted_synergy,
                 "provided_prediction": provided_prediction,
+                "caller_provided_prediction": self._json_safe(supplied.get("provided_prediction", predicted_synergy)),
+                "caller_prediction_consistent": caller_prediction_consistent,
+                "baseline_binding": "original_explain_combination_predicted_synergy",
                 "baseline_difference": baseline_difference,
                 "baseline_tolerance": baseline_tolerance,
                 "baseline_consistent": baseline_consistent,
@@ -1704,10 +1840,21 @@ class SynergyInterpreter:
                 "material_support_rate": material_support_rate,
                 "minimum_perturbations": min_perturbations,
                 "minimum_relative_prediction_change": min_relative_change,
-                "unique_perturbation_count": len(evaluations),
+                "unique_perturbation_count": len(identified_evaluations),
                 "perturbation_type_count": perturbation_type_count,
                 "perturbations": evaluations,
                 "rejected_perturbations": rejected,
+                "duplicate_perturbation_count": len(duplicate_perturbations),
+                "duplicate_perturbations": duplicate_perturbations,
+                "unidentified_perturbation_count": missing_identities,
+                "warnings": [
+                    warning for enabled, warning in (
+                        (not caller_prediction_consistent, "caller_provided_prediction_mismatches_original_input"),
+                        (not baseline_consistent, "baseline_not_consistent_with_original_prediction"),
+                        (bool(missing_identities), "unidentified_perturbations_descriptive_only"),
+                        (bool(duplicate_perturbations), "duplicate_perturbations_excluded"),
+                    ) if enabled
+                ],
                 "evidence_source": "caller_supplied_unverified",
                 "meets_internal_sensitivity_thresholds": meets_thresholds,
                 "independently_validated": False,
@@ -1864,8 +2011,6 @@ class SynergyInterpreter:
             int(value) for value in config.get("top_k_stability", [5, 10, 20])
             if int(value) > 0 and int(value) != top_k
         })
-        # Put the actual primary run first so an equivalent effective target
-        # count cannot cause it to be discarded as a duplicate.
         requested = [top_k, *alternatives]
         network = self.config.get("network", {})
         stability_randomizations = int(config.get("stability_randomizations", 1000))
@@ -1877,6 +2022,15 @@ class SynergyInterpreter:
         score_tolerance = min(0.15, configured_score_tolerance)
         results: List[Dict[str, Any]] = []
         seen_effective = set()
+        statistical_network_mechanisms = {
+            "high_overlap", "complementary_exposure", "single_exposure",
+            "overlapping_single_exposure",
+        }
+
+        def finite_count(value: Any) -> int:
+            numeric = self._numeric_score(value)
+            return int(numeric) if numeric is not None and numeric >= 0 and numeric.is_integer() else 0
+
         for value in requested:
             effective = (min(value, len(ranked1)), min(value, len(ranked2)))
             if effective in seen_effective:
@@ -1893,12 +2047,48 @@ class SynergyInterpreter:
                 random_seed=int(network.get("random_seed", 42)),
                 min_network_coverage=float(network.get("min_mapping_coverage", 0.5)),
             )
+            cheng = mechanism.metrics.get("cheng", {})
+            actual_budget = finite_count(cheng.get("n_randomizations"))
+            valid_budget = finite_count(cheng.get("n_valid_randomizations"))
+            null_stds = [
+                self._numeric_score((cheng.get(key) or {}).get("std"))
+                for key in ("null_A", "null_B")
+            ]
+            null_quality_adequate = bool(
+                cheng.get("valid") is True
+                and cheng.get("quality_status") == "adequate"
+                and valid_budget >= 1000
+                and valid_budget <= actual_budget
+                and valid_budget >= math.ceil(0.9 * actual_budget)
+                and all(std is not None and std > 0 for std in null_stds)
+            )
+            protocol = {
+                key: cheng.get(key)
+                for key in (
+                    "n_randomizations", "random_seed", "distance_method", "null_method", "method_version",
+                )
+            }
+            protocol_complete = bool(
+                actual_budget > 0
+                and self._numeric_score(protocol["random_seed"]) is not None
+                and protocol["distance_method"]
+                and protocol["null_method"]
+                and protocol["method_version"]
+            )
             results.append({
                 "top_k": value,
                 "effective_targets": effective,
                 "mechanism_type": mechanism.mechanism_type,
                 "mechanism_score": mechanism.confidence,
-                "network_randomizations": mechanism.metrics.get("cheng", {}).get("n_randomizations", 0),
+                "network_randomizations": actual_budget,
+                "valid_network_randomizations": valid_budget,
+                "network_valid": cheng.get("valid") is True,
+                "network_quality_status": cheng.get("quality_status", "not_available"),
+                "network_null_quality_adequate": null_quality_adequate,
+                "statistical_network_mechanism": mechanism.mechanism_type in statistical_network_mechanisms,
+                "network_protocol": protocol,
+                "network_protocol_complete": protocol_complete,
+                "network_audit": self._json_safe(cheng),
                 "is_primary_baseline": is_baseline,
             })
         labels = {item["mechanism_type"] for item in results}
@@ -1912,11 +2102,59 @@ class SynergyInterpreter:
             and abs(float(item["mechanism_score"]) - float(baseline.confidence)) <= score_tolerance
             for item in results
         )
-        randomization_budget_sufficient = stability_randomizations >= 1000
+        randomization_budget_sufficient = bool(results) and all(
+            item["network_randomizations"] >= 1000
+            and item["valid_network_randomizations"] >= 1000
+            for item in results
+        )
+        protocol_budget_matches = bool(results) and all(
+            item["network_randomizations"] == stability_randomizations for item in results
+        )
+        common_protocol = bool(
+            results
+            and protocol_budget_matches
+            and all(item["network_protocol_complete"] for item in results)
+            and all(item["network_protocol"] == results[0]["network_protocol"] for item in results)
+        )
+        network_null_quality_adequate = bool(results) and all(
+            item["network_null_quality_adequate"] for item in results
+        )
+        statistical_network_scope = bool(results) and all(
+            item["statistical_network_mechanism"] for item in results
+        )
         descriptive_stable = bool(
             evaluable and label_stable and score_stable and baseline_agreement
         )
-        stable = bool(descriptive_stable and randomization_budget_sufficient)
+        statistical_sets = [item["network_audit"].get("statistical_target_sets") for item in results]
+        statistical_sets_recorded = bool(statistical_sets) and all(
+            isinstance(item, Mapping) and item.get("drug1") and item.get("drug2")
+            for item in statistical_sets
+        )
+        statistical_target_set_variation = bool(
+            statistical_sets_recorded
+            and len({
+                (tuple(sorted(set(item["drug1"]))), tuple(sorted(set(item["drug2"]))))
+                for item in statistical_sets
+            }) >= 2
+        )
+        stable = bool(
+            descriptive_stable and randomization_budget_sufficient
+            and network_null_quality_adequate and common_protocol and statistical_network_scope
+            and statistical_target_set_variation
+        )
+        limitations = [
+            reason for applies, reason in (
+                (not evaluable, "fewer_than_two_effective_target_sets"),
+                (not statistical_network_scope, "nonnetwork_mechanism_descriptive_stability_only"),
+                (not randomization_budget_sufficient, "actual_randomization_budget_below_1000"),
+                (not protocol_budget_matches, "baseline_or_rerun_budget_mismatches_stability_protocol"),
+                (not common_protocol, "network_protocol_not_common_or_not_fully_recorded"),
+                (not network_null_quality_adequate, "one_or_more_network_nulls_invalid_or_inadequate"),
+                (not descriptive_stable, "descriptive_mechanism_not_stable"),
+                (not statistical_sets_recorded, "statistical_target_sets_not_recorded"),
+                (not statistical_target_set_variation, "top_k_does_not_perturb_statistical_target_sets"),
+            ) if applies
+        ]
         return {
             "evaluable": evaluable,
             "stable": stable,
@@ -1929,6 +2167,8 @@ class SynergyInterpreter:
                 "mechanism_type": baseline.mechanism_type,
                 "mechanism_score": baseline.confidence,
                 "network_randomizations": baseline.metrics.get("cheng", {}).get("n_randomizations", 0),
+                "valid_network_randomizations": results[0]["valid_network_randomizations"] if results else 0,
+                "network_quality_status": results[0]["network_quality_status"] if results else "not_available",
             },
             "mechanism_score_delta": score_delta,
             "maximum_allowed_score_delta": score_tolerance,
@@ -1936,6 +2176,13 @@ class SynergyInterpreter:
             "agreement_fraction": max((sum(item["mechanism_type"] == label for item in results) for label in labels), default=0) / max(1, len(results)),
             "network_randomizations_per_test": stability_randomizations,
             "randomization_budget_sufficient": randomization_budget_sufficient,
+            "protocol_budget_matches": protocol_budget_matches,
+            "common_network_protocol": common_protocol,
+            "network_null_quality_adequate": network_null_quality_adequate,
+            "statistical_network_scope": statistical_network_scope,
+            "statistical_target_set_variation": statistical_target_set_variation,
+            "full_robustness_scope": "top_k_sensitivity_under_one_network_protocol_not_external_validation",
+            "limitations": limitations,
             "meets_full_robustness_criteria": stable,
         }
 
@@ -2124,13 +2371,15 @@ class SynergyInterpreter:
             limitations.append("PLATO_alignment_not_counted_as_qualified_corroboration")
             if applicability_threshold is None:
                 limitations.append("PLATO_applicability_threshold_not_configured")
-        if stability.get("stable"):
+        if stability.get("meets_full_robustness_criteria"):
             strengths.append("mechanism_stable_across_tested_top_k")
         elif not stability.get("evaluable"):
             limitations.append("top_k_stability_not_evaluable_with_available_target_counts")
-        elif stability.get("descriptive_stable") and not stability.get("randomization_budget_sufficient"):
-            limitations.append("top_k_stability_randomization_budget_insufficient")
-            warnings.append("top_k_stability_not_claimed_below_randomization_budget")
+        elif stability.get("descriptive_stable"):
+            limitations.append("top_k_stability_descriptive_only_not_independent_robustness")
+            if not stability.get("randomization_budget_sufficient"):
+                limitations.append("top_k_stability_randomization_budget_insufficient")
+                warnings.append("top_k_stability_not_claimed_below_randomization_budget")
         else:
             limitations.append("mechanism_sensitive_to_top_k")
             warnings.append("mechanism_sensitive_to_top_k")
@@ -2232,12 +2481,18 @@ class SynergyInterpreter:
             "P1": "high_overlap",
             "P2": "complementary_exposure",
             "P4": "single_exposure",
-            "P4_edge": "overlapping_single_exposure",
+            "P3": "overlapping_single_exposure",
         }
         network_context_hit = bool(
-            cheng.get("quality_status") == "adequate"
-            and cheng.get("pair_interaction_supported")
-            and cheng.get("pattern") in {"P1", "P2"}
+            cheng.get("valid") is True
+            and cheng.get("quality_status") == "adequate"
+            and cheng.get("statistically_supported") is True
+            and (
+                cheng.get("pattern") in {"P1", "P2"}
+                and cheng.get("near_A") is True and cheng.get("near_B") is True
+                or cheng.get("pattern") in {"P3", "P4"}
+                and (cheng.get("near_A") is True) != (cheng.get("near_B") is True)
+            )
             and network_pattern_to_mechanism.get(cheng.get("pattern")) == mechanism.mechanism_type
         )
         directional_functional_types = {
@@ -2688,8 +2943,7 @@ class SynergyInterpreter:
         )
 
         convergent_mechanism_evidence = bool(
-            network_context_hit
-            or (target_overlap_supported and driver_directions_supported)
+            (target_overlap_supported and driver_directions_supported)
             or (functional_supported and pathway_evidence_traceable and pathway_disease_hit)
         )
         mechanism_support_value = clip01(
@@ -2718,7 +2972,7 @@ class SynergyInterpreter:
                 + 0.10 * plato_integrity_or_not_applicable
             )
 
-        if stability.get("evaluable"):
+        if stability.get("meets_full_robustness_criteria"):
             agreement = clip01(stability.get("agreement_fraction"))
             tolerance = max(0.0, float(stability.get("maximum_allowed_score_delta", 0.0) or 0.0))
             delta = max(0.0, float(stability.get("mechanism_score_delta", 0.0) or 0.0))
@@ -2802,6 +3056,7 @@ class SynergyInterpreter:
                 "mechanism_rule_strength": mechanism.confidence,
                 "primary_mechanism_supported": mechanism_supported,
                 "convergent_mechanism_evidence": convergent_mechanism_evidence,
+                "convergence_semantics": "additional_rule_corroboration_not_independent_validation_network_hit_not_counted_twice",
             }),
             "provenance_integrity": (0.12, provenance_integrity_value, provenance_component_inputs),
             "robustness": (0.06, robustness_value, {
@@ -2823,7 +3078,7 @@ class SynergyInterpreter:
         components: Dict[str, Dict[str, Any]] = {}
         component_status_overrides = {
             "direction_support": "not_applicable",
-            "robustness": None if stability.get("evaluable") else "unmeasured",
+            "robustness": None if stability.get("meets_full_robustness_criteria") else "descriptive_only_or_unmeasured",
             "model_fidelity": (
                 "unverified_caller_evidence_noncontributing"
                 if model_source == "caller_supplied_unverified"
@@ -2994,10 +3249,10 @@ class SynergyInterpreter:
                 "mechanism_supported": "configured mechanism evidence rules were met",
                 "externally_validated": "independent experimental or external validation was supplied",
             },
-            "formula_version": "evidence_credibility_v4_verified_plato_only",
+            "formula_version": "evidence_credibility_v5_frozen_statistical_targets",
             "score_profile": {
                 "name": "single_pair",
-                "formula_version": "evidence_credibility_v4_verified_plato_only",
+                "formula_version": "evidence_credibility_v5_frozen_statistical_targets",
                 "target_mode": "plato_only",
                 "batch_FDR_applied": False,
             },
@@ -3119,8 +3374,8 @@ class SynergyInterpreter:
         profile2 = DrugTargetExplanation(drug2_name, drug2_smiles, ranked2, ranked2[:top_k], resolution2)
         network = self.config.get("network", {})
         mechanism = classify_mechanism(
-            profile1.top_targets,
-            profile2.top_targets,
+            profile1.all_targets,
+            profile2.all_targets,
             self.context,
             top_k=top_k,
             disease_label=disease_label,
@@ -3128,13 +3383,13 @@ class SynergyInterpreter:
             random_seed=int(network.get("random_seed", 42)),
             min_network_coverage=float(network.get("min_mapping_coverage", 0.5)),
         )
-        modules = self._rank_modules(profile1.top_targets, profile2.top_targets, disease_label)
+        modules = self._rank_modules(profile1.all_targets, profile2.all_targets, disease_label)
         enable_advanced = self.config.get("advanced", True) if advanced is None else advanced
         advanced_result = explain_advanced(
             drug1_name,
             drug2_name,
-            profile1.top_targets,
-            profile2.top_targets,
+            profile1.all_targets,
+            profile2.all_targets,
             self.context,
             mechanism,
             top_k=top_k,
@@ -3175,6 +3430,58 @@ class SynergyInterpreter:
         used_disease_source = disease_metadata.get("source_by_label", {}).get(
             used_disease_label, "unknown"
         )
+        configured_run_mode = str(
+            self.config.get("run_mode", DEFAULT_RUN_MODE)
+        ).strip().lower()
+        effective_run_mode = (
+            "test" if configured_run_mode == "test"
+            else "demo" if self.context.is_demo_context
+            else configured_run_mode
+        )
+        generated_from_test_fixture = bool(
+            self.config.get("generated_from_test_fixture", False)
+        )
+        eligibility_reasons = ["thesis_research_hypothesis_only"]
+        if effective_run_mode == "demo":
+            eligibility_reasons.append("demo_context_not_for_formal_results")
+        if generated_from_test_fixture:
+            eligibility_reasons.append("synthetic_test_fixture_not_for_research_conclusions")
+        result_timestamp = datetime.now(timezone.utc).isoformat()
+        credibility_config = self.config.get("credibility", {})
+        runtime_manifest = (
+            credibility_config.get("runtime_manifest", {})
+            if isinstance(credibility_config, Mapping) else {}
+        )
+        audit = build_research_audit(
+            package_root=Path(__file__).resolve().parent,
+            config=self.config,
+            run_mode=effective_run_mode,
+            generated_from_test_fixture=generated_from_test_fixture,
+            generated_at_utc=result_timestamp,
+            runtime_manifest=(
+                runtime_manifest if isinstance(runtime_manifest, Mapping) else {}
+            ),
+            artifact_inventory=self.artifact_hash_inventory(
+                effective_cell, used_disease_label
+            ),
+            plato_inputs={
+                "drug1": {
+                    "drug_name": drug1_name,
+                    **plato_resolution_audit(resolution1),
+                },
+                "drug2": {
+                    "drug_name": drug2_name,
+                    **plato_resolution_audit(resolution2),
+                },
+            },
+            credibility_formula_version=str(
+                credibility.get(
+                    "formula_version",
+                    "evidence_credibility_v5_frozen_statistical_targets",
+                )
+            ),
+            plato_parser_version=PARSER_VERSION,
+        )
         return CombinationExplanation(
             drug1_name=drug1_name,
             drug2_name=drug2_name,
@@ -3198,9 +3505,15 @@ class SynergyInterpreter:
                 "disease_context_labels": [used_disease_label] if used_disease_label else [],
                 "disease_context_source": used_disease_source,
                 "context_status": context_status,
+                "run_mode": effective_run_mode,
+                "formal_result_eligible": False,
+                "formal_result_eligibility_reasons": eligibility_reasons,
+                "generated_from_test_fixture": generated_from_test_fixture,
+                "audit": audit,
             },
             credibility=credibility,
             model_fidelity=model_fidelity,
+            timestamp=result_timestamp,
         )
 
     def explain_batch(self, combinations: Sequence[Mapping[str, Any]], save_path: Optional[str] = None) -> List[CombinationExplanation]:
@@ -3219,97 +3532,22 @@ class SynergyInterpreter:
             results = [self.explain_combination(**dict(item)) for item in combinations]
         finally:
             self._batch_context_audit_active = False
-        hypotheses: List[Tuple[float, CombinationExplanation, str]] = []
-        for result in results:
-            cheng = result.mechanism.metrics.get("cheng", {})
-            for key in ("A", "B"):
-                value = self._numeric_score(cheng.get(f"p_{key}"))
-                if value is not None:
-                    hypotheses.append((value, result, key))
-        ordered = sorted(enumerate(hypotheses), key=lambda item: item[1][0])
-        q_values: Dict[int, float] = {}
-        running = 1.0
-        total = len(ordered)
-        for rank_index in range(total - 1, -1, -1):
-            original_index, (p_value, _, _) = ordered[rank_index]
-            rank = rank_index + 1
-            running = min(running, p_value * total / rank)
-            q_values[original_index] = min(1.0, running)
-        for original_index, (_, result, key) in enumerate(hypotheses):
-            cheng = result.mechanism.metrics.get("cheng", {})
-            cheng[f"batch_q_{key}"] = q_values[original_index]
-            cheng["batch_multiple_testing_method"] = "Benjamini-Hochberg_across_all_pair_by_drug_tests"
-            cheng["batch_hypothesis_count"] = total
-        for result in results:
-            credibility = result.credibility
-            base_score = credibility.get("base_score", credibility.get("final_score"))
-            credibility["base_score"] = base_score
-            credibility["batch_adjusted_score"] = credibility.get("final_score")
-            profile = dict(credibility.get("score_profile", {}))
-            profile.update({
-                "name": "batch_BH_FDR",
-                "formula_version": "evidence_credibility_v4_verified_plato_only",
-                "target_mode": "plato_only",
-                "batch_FDR_applied": True,
-                "batch_FDR_adjustment_applied": False,
-                "batch_multiple_testing_method": "Benjamini-Hochberg_across_all_pair_by_drug_tests",
-                "batch_hypothesis_count": total,
-            })
-            credibility["score_profile"] = profile
-        network_types = {
-            "high_overlap", "complementary_exposure", "single_exposure",
-            "overlapping_single_exposure",
-        }
-        for result in results:
-            cheng = result.mechanism.metrics.get("cheng", {})
-            if result.mechanism.mechanism_type not in network_types:
-                continue
-            q_supported = all(
-                self._numeric_score(cheng.get(key)) is not None and float(cheng[key]) <= 0.05
-                for key in ("batch_q_A", "batch_q_B")
-            )
-            score = self._numeric_score(
-                result.credibility.get("evidence_credibility_score")
-            )
-            if score is not None and not q_supported:
-                limitation = "network_support_not_significant_after_batch_FDR"
-                delta = -min(6.0, score)
-                adjusted = round(max(0.0, score + delta), 1)
-                result.credibility["evidence_credibility_score"] = adjusted
-                result.credibility["final_score"] = adjusted
-                result.credibility["batch_adjusted_score"] = adjusted
-                result.credibility.setdefault("score_profile", {})[
-                    "batch_FDR_adjustment_applied"
-                ] = True
-                result.credibility.setdefault("adjustments", []).append({
-                    "code": "batch_FDR_not_significant",
-                    "delta": round(delta, 1),
-                    "method": "Benjamini-Hochberg_across_all_pair_by_drug_tests",
-                })
-                result.credibility.setdefault("limitations", []).append(limitation)
-                result.credibility.setdefault("warnings", []).append(
-                    f"credibility_adjustment:{limitation}"
-                )
-                result.credibility.setdefault("limitation_severity", {})[limitation] = "high"
-                result.mechanism.credibility_score = adjusted
-                result.mechanism.uncertainty = list(dict.fromkeys(
-                    result.mechanism.uncertainty + [limitation]
-                ))
-                for key in ("limitations", "warnings"):
-                    values = result.credibility.get(key, [])
-                    result.credibility[key] = list(dict.fromkeys(values))
+        apply_batch_fdr(results)
         if save_path:
             self.save_results(results, save_path)
         return results
 
     @staticmethod
-    def save_results(results: Sequence[CombinationExplanation], path: str | Path) -> None:
-        destination = Path(path)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(
-            json.dumps([result.to_dict() for result in results], ensure_ascii=False, indent=2, allow_nan=False),
-            encoding="utf-8",
-        )
+    def save_result(result: CombinationExplanation, path: str | Path) -> Dict[str, Any]:
+        """Write one result with an exact-byte SHA-256 sidecar."""
+        return write_json_with_sha256(path, result.to_dict())
+
+    @staticmethod
+    def save_results(
+        results: Sequence[CombinationExplanation], path: str | Path
+    ) -> Dict[str, Any]:
+        """Write a result collection with an exact-byte SHA-256 sidecar."""
+        return write_json_with_sha256(path, [result.to_dict() for result in results])
 
 
 ExplanationPipeline = SynergyInterpreter

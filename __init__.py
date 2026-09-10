@@ -1,6 +1,6 @@
 """Compact PLATO-aware synergy mechanism interpreter."""
 
-__version__ = "5.1.0"
+__version__ = "5.2.0"
 
 from .advanced import AdvancedResult, explain_advanced
 from .context import CancerContext, ContextScore

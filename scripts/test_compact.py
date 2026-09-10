@@ -359,9 +359,9 @@ def test_strict_positive_fixture_and_integrity(root: Path) -> None:
         advanced=False,
     )
     payload = result.to_dict()
-    assert payload["result_schema_version"] == "5.1"
+    assert payload["result_schema_version"] == "5.2"
     assert payload["metadata"]["target_mode"] == "plato_only"
-    assert payload["credibility"]["formula_version"] == "evidence_credibility_v4_verified_plato_only"
+    assert payload["credibility"]["formula_version"] == "evidence_credibility_v5_frozen_statistical_targets"
     assert payload["credibility"]["score_profile"]["name"] == "single_pair"
     assert payload["credibility"]["base_score"] == payload["credibility"]["final_score"]
     assert payload["credibility"]["batch_adjusted_score"] is None
@@ -381,7 +381,8 @@ def test_strict_positive_fixture_and_integrity(root: Path) -> None:
         "advanced": False,
     }])[0]
     batch_credibility = batch_result.to_dict()["credibility"]
-    assert batch_credibility["score_profile"]["name"] == "batch_BH_FDR"
+    assert batch_credibility["score_profile"]["name"] == "single_pair"
+    assert batch_credibility["score_profile"]["batch_FDR_adjustment_applied"] is False
     assert batch_credibility["score_profile"]["batch_FDR_applied"] is True
     assert "base_score" in batch_credibility
     assert "batch_adjusted_score" in batch_credibility
@@ -433,17 +434,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="interpreterplato-contract-") as temporary:
         root = Path(temporary)
         test_target_parsing_filters()
-        fixture = (
-            Path(__file__).resolve().parents[1]
-            / "data" / "raw" / "plato" / "r37" / "golden_fixture"
-            / "gemcitabine_target_fishing_response_2026-07-16.json"
-        )
-        if fixture.is_file():
-            test_real_plato_r37_fixture_contract()
-            test_exact_candidate_is_rejected_even_when_raw_hash_is_trusted(root)
-            test_stale_schema_grant_is_revoked_when_production_allowlist_is_empty(root)
-        else:
-            print("external PLATO fixture absent: candidate contract tests skipped")
+        test_real_plato_r37_fixture_contract()
+        test_exact_candidate_is_rejected_even_when_raw_hash_is_trusted(root)
+        test_stale_schema_grant_is_revoked_when_production_allowlist_is_empty(root)
         test_strict_api_rejects_local_and_mutable_modes(root)
         test_unverified_and_untrusted_plato_exports_fail(root)
         test_strict_positive_fixture_and_integrity(root)

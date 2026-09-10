@@ -144,7 +144,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Run the pair-level workflow: PLATO single query for drug 1, "
-            "PLATO single query for drug 2, then strict PLATO-only interpretation."
+            "PLATO single query for drug 2, then an audited research mechanism hypothesis."
         )
     )
     parser.add_argument("--drug1", required=True, help="First drug name")
@@ -210,7 +210,7 @@ def main() -> int:
         "--run-dir",
         help=(
             "Run-specific output directory. Defaults to "
-            "InterpreterPLATO/outputs/plato_pair_runs/<timestamp>_<drug1>__<drug2>"
+            "InterpreterPLATO/outputs/research/plato_pair_runs/<timestamp>_<drug1>__<drug2>"
         ),
     )
     parser.add_argument("--output", help="Explanation JSON output path")
@@ -269,6 +269,7 @@ def main() -> int:
         args.run_dir
         or PACKAGE
         / "outputs"
+        / "research"
         / "plato_pair_runs"
         / f"{captured_at.replace(':', '').replace('+', 'Z')}_{_slug(args.drug1)}__{_slug(args.drug2)}"
     ).expanduser()
@@ -343,19 +344,29 @@ def main() -> int:
         "context_config": args.context_config,
         "demo": bool(args.demo),
         "explanation_output": output_path,
+        "run_mode": "demo" if args.demo else "research_hypothesis",
+        "formal_result_eligible": False,
+        "formal_result_eligibility_reasons": [
+            "thesis_research_hypothesis_only",
+            *(["demo_context_not_for_formal_results"] if args.demo else []),
+        ],
     }
     _write_json(manifest_path, manifest)
 
     if not trust_anchor_match:
         manifest["explanation_status"] = "not_run_without_external_trust_anchor"
         manifest["formal_result_eligible"] = False
+        manifest["formal_result_eligibility_reasons"] = [
+            "thesis_research_hypothesis_only",
+            "missing_independent_plato_trust_anchor",
+        ]
         manifest["explanation_error"] = (
-            "Formal interpretation requires every captured PLATO response SHA-256 "
+            "Research-hypothesis generation requires every captured PLATO response SHA-256 "
             "to match a caller-supplied, independently authenticated allowlist."
         )
         _write_json(manifest_path, manifest)
         print(
-            "PLATO captures were archived, but formal explanation was not run: "
+            "PLATO captures were archived, but research-hypothesis generation was not run: "
             "the same-run response digests are not independent trust anchors.",
             file=sys.stderr,
         )
@@ -363,6 +374,8 @@ def main() -> int:
         return 2
 
     pipeline_config: Dict[str, Any] = {
+        "run_mode": "research_hypothesis",
+        "generated_from_test_fixture": False,
         "target_mode": "plato_only",
         "plato": {
             "cache_dir": str(cache_dir),
@@ -378,7 +391,7 @@ def main() -> int:
         pipeline_config["credibility"] = {"stability_randomizations": 25}
 
     try:
-        print("[3/3] Explaining the drug-pair mechanism ...")
+        print("[3/3] Generating the drug-pair mechanism hypothesis ...")
         pipe = ExplanationPipeline(config=pipeline_config)
         if args.demo:
             pipe.load_demo_resources()
@@ -395,11 +408,7 @@ def main() -> int:
             disease_label=args.disease_label,
         )
         result.print_summary()
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(
-            json.dumps(result.to_dict(), ensure_ascii=False, indent=2, allow_nan=False),
-            encoding="utf-8",
-        )
+        output_record = pipe.save_result(result, output_path)
     except Exception as exc:  # noqa: BLE001 - raw/caches already preserved.
         manifest["explanation_status"] = "failed"
         manifest["explanation_error"] = str(exc)
@@ -409,8 +418,15 @@ def main() -> int:
             f"but explanation failed: {exc}"
         )
 
-    manifest["explanation_status"] = "success"
-    manifest["formal_result_eligible"] = True
+    manifest["explanation_status"] = "research_hypothesis_generated"
+    manifest["run_mode"] = "demo" if args.demo else "research_hypothesis"
+    manifest["formal_result_eligible"] = False
+    manifest["formal_result_eligibility_reasons"] = [
+        "thesis_research_hypothesis_only",
+        *(["demo_context_not_for_formal_results"] if args.demo else []),
+    ]
+    manifest["explanation_output_sha256"] = output_record["sha256"]
+    manifest["explanation_output_sha256_sidecar"] = output_record["sha256_sidecar"]
     _write_json(manifest_path, manifest)
     print(output_path)
     print(manifest_path)

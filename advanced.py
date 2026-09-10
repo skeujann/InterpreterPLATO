@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 from hashlib import sha256
 import json
@@ -391,6 +392,105 @@ def build_evidence_graph(
     }
 
 
+def _counterfactual_comparison(
+    baseline: MechanismResult,
+    perturbed: MechanismResult,
+    *,
+    network_randomizations: int,
+    random_seed: int,
+) -> Dict[str, Any]:
+    """Audit actual null realizations before interpreting a sensitivity comparison."""
+    reasons: List[str] = []
+    audits: Dict[str, Dict[str, Any]] = {}
+    protocol_fields = ("method_version", "distance_method", "null_method")
+
+    def finite_number(value: Any) -> Optional[float]:
+        if isinstance(value, bool):
+            return None
+        try:
+            number = float(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        return number if math.isfinite(number) else None
+
+    for label, result in (("baseline", baseline), ("perturbed", perturbed)):
+        network = result.metrics.get("cheng", {})
+        network = network if isinstance(network, Mapping) else {}
+        requested = finite_number(network.get("n_randomizations"))
+        accepted = finite_number(network.get("n_valid_randomizations"))
+        seed = finite_number(network.get("random_seed"))
+        null_stds = {}
+        for arm in ("A", "B"):
+            null = network.get(f"null_{arm}", {})
+            null_stds[arm] = finite_number(null.get("std")) if isinstance(null, Mapping) else None
+        audit = {
+            "valid": network.get("valid") is True,
+            "quality_status": network.get("quality_status"),
+            "n_randomizations": requested,
+            "n_valid_randomizations": accepted,
+            "valid_fraction": accepted / requested if requested and accepted is not None else None,
+            "random_seed": seed,
+            "null_stds": null_stds,
+            **{key: network.get(key) for key in protocol_fields},
+        }
+        audits[label] = audit
+        if not audit["valid"]:
+            reasons.append(f"{label}:invalid_network_statistics")
+        if audit["quality_status"] != "adequate":
+            reasons.append(f"{label}:inadequate_null_quality")
+        if requested is None or not requested.is_integer() or requested < MIN_ADEQUATE_RANDOMIZATIONS:
+            reasons.append(f"{label}:insufficient_requested_randomizations")
+        if accepted is None or not accepted.is_integer() or accepted < MIN_ADEQUATE_RANDOMIZATIONS:
+            reasons.append(f"{label}:insufficient_valid_randomizations")
+        if requested is None or accepted is None or requested <= 0 or not 0.9 * requested <= accepted <= requested:
+            reasons.append(f"{label}:invalid_acceptance_fraction")
+        if any(value is None or value <= 0 for value in null_stds.values()):
+            reasons.append(f"{label}:degenerate_or_missing_null_variance")
+        if requested != network_randomizations:
+            reasons.append(f"{label}:configured_budget_mismatch")
+        if seed is None or not seed.is_integer() or seed != random_seed:
+            reasons.append(f"{label}:configured_seed_mismatch")
+        for key in protocol_fields:
+            if not isinstance(audit[key], str) or not audit[key].strip():
+                reasons.append(f"{label}:missing_{key}")
+    for key in (*protocol_fields, "random_seed", "n_randomizations"):
+        if audits["baseline"][key] != audits["perturbed"][key]:
+            reasons.append(f"protocol_mismatch:{key}")
+    evaluable = not reasons
+    descriptive_changed = perturbed.mechanism_type != baseline.mechanism_type
+    return {
+        "descriptive_mechanism_changed": descriptive_changed,
+        "mechanism_changed": descriptive_changed if evaluable else None,
+        "comparison_evaluable": evaluable,
+        "comparison_status": "evaluated" if evaluable else "not_evaluable",
+        "comparison_audit": {
+            "reason_codes": reasons,
+            "baseline": audits["baseline"],
+            "perturbed": audits["perturbed"],
+            "configured_network_randomizations": network_randomizations,
+            "configured_random_seed": random_seed,
+            "minimum_accepted_randomizations": MIN_ADEQUATE_RANDOMIZATIONS,
+            "minimum_accepted_fraction": 0.9,
+            "scope": "interpreter_sensitivity_not_model_fidelity_or_biological_causality",
+        },
+    }
+
+
+def _masked_path_context(context: CancerContext, bridges: Sequence[str]) -> CancerContext:
+    """Build an isolated resource snapshot with fresh caches for graph masking."""
+    masked = CancerContext()
+    for attribute in (
+        "ppi", "expression", "pathways", "pathway_sources", "pathway_versions",
+        "pathway_taxids", "pathway_identifier_namespaces", "pathway_mapping_versions",
+        "pathway_content_hashes", "pathway_artifact_kinds", "pathway_artifact_hashes",
+        "disease_sets", "default_disease_genes", "default_disease_label",
+        "resource_metadata", "is_demo_context",
+    ):
+        setattr(masked, attribute, deepcopy(getattr(context, attribute)))
+    masked.ppi.remove_nodes_from([node for node in bridges if node in masked.ppi])
+    return masked
+
+
 def counterfactual_analysis(
     drug1_targets: Sequence[ContextScore],
     drug2_targets: Sequence[ContextScore],
@@ -405,7 +505,6 @@ def counterfactual_analysis(
     min_network_coverage: float = 0.5,
 ) -> List[Dict[str, Any]]:
     reports: List[Dict[str, Any]] = []
-    comparison_evaluable = network_randomizations >= MIN_ADEQUATE_RANDOMIZATIONS
     for drug_key, left, right in (
         ("drug1", drug1_targets, drug2_targets),
         ("drug2", drug2_targets, drug1_targets),
@@ -435,16 +534,11 @@ def counterfactual_analysis(
                 "after_confidence": perturbed.confidence,
                 "confidence_delta": perturbed.confidence - baseline.confidence,
                 "score_delta": perturbed.confidence - baseline.confidence,
-                "mechanism_changed": (
-                    perturbed.mechanism_type != baseline.mechanism_type
-                    if comparison_evaluable else None
+                **_counterfactual_comparison(
+                    baseline, perturbed,
+                    network_randomizations=network_randomizations, random_seed=random_seed,
                 ),
-                "comparison_evaluable": comparison_evaluable,
-                "comparison_status": (
-                    "evaluated" if comparison_evaluable
-                    else "insufficient_randomization_budget"
-                ),
-                "analysis_semantics": "model_rule_sensitivity_not_causal_effect",
+                "analysis_semantics": "interpreter_rule_sensitivity_not_model_fidelity_or_biological_causality",
                 "network_randomizations": network_randomizations,
             })
     # Module suppression: remove target members of an implicated pathway from
@@ -477,16 +571,11 @@ def counterfactual_analysis(
             "after_confidence": perturbed.confidence,
             "confidence_delta": perturbed.confidence - baseline.confidence,
             "score_delta": perturbed.confidence - baseline.confidence,
-            "mechanism_changed": (
-                perturbed.mechanism_type != baseline.mechanism_type
-                if comparison_evaluable else None
+            **_counterfactual_comparison(
+                baseline, perturbed,
+                network_randomizations=network_randomizations, random_seed=random_seed,
             ),
-            "comparison_evaluable": comparison_evaluable,
-            "comparison_status": (
-                "evaluated" if comparison_evaluable
-                else "insufficient_randomization_budget"
-            ),
-            "analysis_semantics": "model_rule_sensitivity_not_causal_effect",
+            "analysis_semantics": "interpreter_rule_sensitivity_not_model_fidelity_or_biological_causality",
             "network_randomizations": network_randomizations,
         })
     reports.sort(
@@ -536,24 +625,7 @@ def explain_advanced(
         bridges = list(item.get("bridge_genes", []))
         if not bridges:
             continue
-        masked_context = CancerContext()
-        masked_context.ppi = context.ppi.copy()
-        masked_context.ppi.remove_nodes_from([node for node in bridges if node in masked_context.ppi])
-        masked_context.expression = context.expression
-        masked_context.pathways = context.pathways
-        masked_context.pathway_sources = context.pathway_sources
-        masked_context.pathway_versions = context.pathway_versions
-        masked_context.pathway_taxids = context.pathway_taxids
-        masked_context.pathway_identifier_namespaces = context.pathway_identifier_namespaces
-        masked_context.pathway_mapping_versions = context.pathway_mapping_versions
-        masked_context.pathway_content_hashes = context.pathway_content_hashes
-        masked_context.pathway_artifact_kinds = context.pathway_artifact_kinds
-        masked_context.pathway_artifact_hashes = context.pathway_artifact_hashes
-        masked_context.disease_sets = context.disease_sets
-        masked_context.default_disease_genes = context.default_disease_genes
-        masked_context.default_disease_label = context.default_disease_label
-        masked_context.resource_metadata = context.resource_metadata
-        masked_context.is_demo_context = context.is_demo_context
+        masked_context = _masked_path_context(context, bridges)
         perturbed = classify_mechanism(
             drug1_targets,
             drug2_targets,
@@ -575,17 +647,11 @@ def explain_advanced(
             "after_confidence": perturbed.confidence,
             "confidence_delta": perturbed.confidence - mechanism.confidence,
             "score_delta": perturbed.confidence - mechanism.confidence,
-            "mechanism_changed": (
-                perturbed.mechanism_type != mechanism.mechanism_type
-                if sensitivity_randomizations >= MIN_ADEQUATE_RANDOMIZATIONS else None
+            **_counterfactual_comparison(
+                mechanism, perturbed,
+                network_randomizations=sensitivity_randomizations, random_seed=random_seed,
             ),
-            "comparison_evaluable": sensitivity_randomizations >= MIN_ADEQUATE_RANDOMIZATIONS,
-            "comparison_status": (
-                "evaluated"
-                if sensitivity_randomizations >= MIN_ADEQUATE_RANDOMIZATIONS
-                else "insufficient_randomization_budget"
-            ),
-            "analysis_semantics": "network_path_sensitivity_not_causal_effect",
+            "analysis_semantics": "interpreter_network_path_sensitivity_not_model_fidelity_or_biological_causality",
             "network_randomizations": sensitivity_randomizations,
         })
     for index, item in enumerate(counterfactuals):

@@ -1,4 +1,4 @@
-"""CLI for one verified PLATO-only explanation or a validated JSON batch."""
+"""CLI for one audited PLATO-only mechanism hypothesis or a JSON batch."""
 
 from __future__ import annotations
 
@@ -217,13 +217,13 @@ def _preflight_cache(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Explain drug pairs only from verified PLATO cache entries",
+        description="Generate research mechanism hypotheses from verified PLATO cache entries",
     )
     sub = parser.add_subparsers(dest="command", required=True)
     one = sub.add_parser(
         "summary",
-        help="Explain one named drug pair (primary workflow)",
-        description="Explain one drug pair; --drug1 and --drug2 are the primary inputs.",
+        help="Generate a hypothesis for one named drug pair (primary workflow)",
+        description="Analyze one drug pair; --drug1 and --drug2 are the primary inputs.",
     )
     add_context_arguments(one)
     one.add_argument("--drug1", required=True, help="First drug name")
@@ -240,7 +240,9 @@ def main() -> int:
     one.add_argument("--output")
     one.add_argument("--no-advanced", action="store_true")
 
-    batch = sub.add_parser("batch", help="Explain a validated JSON list of combinations")
+    batch = sub.add_parser(
+        "batch", help="Generate hypotheses for a validated JSON list of combinations"
+    )
     add_context_arguments(batch)
     batch.add_argument("--input", required=True)
     batch.add_argument("--output", required=True)
@@ -275,6 +277,8 @@ def main() -> int:
         parser, args.plato_cache, queries, args.trusted_plato_sha256
     )
     pipeline_config: Dict[str, Any] = {
+        "run_mode": "research_hypothesis",
+        "generated_from_test_fixture": False,
         "target_mode": "plato_only",
         "plato": {
             "cache_dir": str(cache_dir),
@@ -322,10 +326,7 @@ def main() -> int:
     if args.output:
         destination = _prepare_output(parser, args.output)
         try:
-            destination.write_text(
-                json.dumps(result.to_dict(), ensure_ascii=False, indent=2, allow_nan=False),
-                encoding="utf-8",
-            )
+            pipe.save_result(result, destination)
         except OSError as exc:
             parser.error(f"unable to write output {destination}: {exc}")
     return 0

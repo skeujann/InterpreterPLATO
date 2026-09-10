@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 from bisect import bisect_left
+from hashlib import sha256
+import json
 import math
 import re
 
@@ -19,6 +21,8 @@ MITOSIS = {"TUBB", "TUBA1B", "AURKA", "AURKB", "PLK1", "KIF11"}
 DNA_DAMAGE = {"TOP1", "TOP2A", "PARP1", "ATM", "ATR", "BRCA1", "BRCA2"}
 DNA_REPAIR = {"PARP1", "BRCA1", "BRCA2", "MGMT", "RAD51", "WEE1"}
 MIN_ADEQUATE_RANDOMIZATIONS = 1000
+NETWORK_METHOD_VERSION = "weighted_fixed_disease_closest_v2"
+STATISTICAL_CONTRACT_VERSION = "1.0"
 INHIBITORY_ACTION_TERMS = (
     "inhibitor", "inhibition", "antagonist", "blocker", "negative modulator",
     "negative allosteric", "degrader", "degradation", "suppressor", "inactivator", "inhibitory",
@@ -204,11 +208,11 @@ def _directed_closest_distance(
 ) -> Optional[float]:
     mapped_left = {item for item in left if item in graph}
     mapped_right = {item for item in right if item in graph}
-    if not mapped_left or not mapped_right:
+    if not mapped_left or not mapped_right or mapped_left != left or mapped_right != right:
         return None
     if distance_lookup is not None:
         values = []
-        for source in mapped_left:
+        for source in sorted(mapped_left):
             nearest = min(
                 (
                     value for value in (
@@ -225,8 +229,8 @@ def _directed_closest_distance(
             distances = nx.multi_source_dijkstra_path_length(graph, mapped_right, weight=edge_distance)
         except (nx.NetworkXError, ValueError):
             return None
-        values = [float(distances[item]) for item in mapped_left if item in distances]
-    return float(np.mean(values)) if values else None
+        values = [float(distances[item]) for item in sorted(mapped_left) if item in distances]
+    return float(np.mean(values)) if len(values) == len(mapped_left) else None
 
 
 def _mean_cross_distance(
@@ -237,8 +241,7 @@ def _mean_cross_distance(
 ) -> Optional[float]:
     forward = _directed_closest_distance(graph, left, right, distance_lookup)
     reverse = _directed_closest_distance(graph, right, left, distance_lookup)
-    values = [value for value in (forward, reverse) if value is not None]
-    return float(np.mean(values)) if values else None
+    return float((forward + reverse) / 2.0) if forward is not None and reverse is not None else None
 
 
 def _mean_internal_distance(
@@ -250,7 +253,7 @@ def _mean_internal_distance(
         return 0.0
     distances: List[float] = []
     mapped = {item for item in nodes if item in graph}
-    for source in mapped:
+    for source in sorted(mapped):
         others = mapped - {source}
         if not others:
             continue
@@ -270,7 +273,7 @@ def _mean_internal_distance(
             nearest = min((lengths[item] for item in others if item in lengths), default=None)
         if nearest is not None:
             distances.append(float(nearest))
-    return sum(distances) / len(distances) if distances else None
+    return sum(distances) / len(distances) if distances and len(distances) == len(nodes) else None
 
 
 def _degree_matched_sample(
@@ -350,6 +353,27 @@ def _cheng_metrics(
     distance_lookup: Optional[Callable[[str, str], Optional[float]]] = None,
     degree_sampling_index: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """Versioned weighted, fixed-disease variant, not a Cheng reference implementation."""
+    method_metadata = {
+        "method_version": NETWORK_METHOD_VERSION,
+        "statistical_contract_version": STATISTICAL_CONTRACT_VERSION,
+        "reference_method_reproduction": False,
+        "distance_method": "confidence_weighted_target_to_nearest_fixed_disease",
+        "separation_method": "mean_of_two_directed_closest_means_minus_within_set_nearest_means",
+        "null_method": "degree_matched_fixed_disease_module_disjoint_complete_draws",
+        "randomization_seed_policy": "sha256_base_seed_method_sorted_target_and_disease_sets",
+        "mapping_policy": "complete_observed_mapping_and_distances_required",
+        "draw_policy": "reject_whole_draw_if_size_or_reachability_incomplete",
+        "n_randomizations": max(0, int(samples)),
+        "n_valid_randomizations": 0,
+        "random_seed": int(random_seed),
+        "statistically_supported": False,
+        "pair_interaction_supported": False,
+        "biological_interaction_tested": False,
+        "both_drugs_disease_proximity_supported": False,
+        "inferential_scope": "exploratory_tail_probability_under_custom_conditional_null",
+        "null_exchangeability_validated": False,
+    }
     mapped_left = {item for item in left if item in graph}
     mapped_right = {item for item in right if item in graph}
     mapped_disease = {item for item in disease if item in graph}
@@ -358,8 +382,10 @@ def _cheng_metrics(
         "drug2": _network_set_coverage(right, graph),
         "disease_module": _network_set_coverage(disease, graph),
     }
-    if not mapped_left or not mapped_right or not mapped_disease:
+    if (not mapped_left or not mapped_right or not mapped_disease
+            or mapped_left != left or mapped_right != right or mapped_disease != disease):
         return {
+            **method_metadata,
             "valid": False,
             "pattern": "insufficient_network_support",
             "quality_status": "insufficient",
@@ -373,15 +399,16 @@ def _cheng_metrics(
     )
     coverage["drug1"] = _network_set_coverage(left, graph, disease_distances)
     coverage["drug2"] = _network_set_coverage(right, graph, disease_distances)
-    observed_values_a = [disease_distances[item] for item in mapped_left if item in disease_distances]
-    observed_values_b = [disease_distances[item] for item in mapped_right if item in disease_distances]
-    observed_a = float(np.mean(observed_values_a)) if observed_values_a else None
-    observed_b = float(np.mean(observed_values_b)) if observed_values_b else None
+    observed_values_a = [disease_distances[item] for item in sorted(mapped_left) if item in disease_distances]
+    observed_values_b = [disease_distances[item] for item in sorted(mapped_right) if item in disease_distances]
+    observed_a = float(np.mean(observed_values_a)) if len(observed_values_a) == len(mapped_left) else None
+    observed_b = float(np.mean(observed_values_b)) if len(observed_values_b) == len(mapped_right) else None
     d_aa = _mean_internal_distance(graph, mapped_left, distance_lookup)
     d_bb = _mean_internal_distance(graph, mapped_right, distance_lookup)
     d_ab = _mean_cross_distance(graph, mapped_left, mapped_right, distance_lookup)
-    if None in (observed_a, observed_b, d_aa, d_bb, d_ab):
+    if any(value is None or not math.isfinite(value) for value in (observed_a, observed_b, d_aa, d_bb, d_ab)):
         return {
+            **method_metadata,
             "valid": False,
             "pattern": "insufficient_network_support",
             "quality_status": "insufficient",
@@ -390,38 +417,49 @@ def _cheng_metrics(
         }
 
     requested = max(0, int(samples))
-    rng = np.random.default_rng(random_seed)
     if degree_sampling_index is not None:
-        graph_nodes = list(degree_sampling_index.get("nodes", ()))
+        graph_nodes = sorted(degree_sampling_index.get("nodes", ()), key=str)
         degree_groups = {
-            int(degree): list(group)
+            int(degree): sorted(group, key=str)
             for degree, group in dict(degree_sampling_index.get("degree_groups", {})).items()
         }
-        sorted_degrees = list(degree_sampling_index.get("sorted_degrees", ()))
+        sorted_degrees = sorted(degree_sampling_index.get("sorted_degrees", ()))
     else:
-        graph_nodes = list(graph.nodes())
+        graph_nodes = sorted(graph.nodes(), key=str)
         degree_groups = {}
         for node in graph_nodes:
             degree_groups.setdefault(graph.degree(node), []).append(node)
         sorted_degrees = sorted(degree_groups)
-    random_a: List[float] = []
-    random_b: List[float] = []
-    match_errors_a: List[float] = []
-    match_errors_b: List[float] = []
-    for _ in range(requested):
-        sample_a, error_a = _degree_matched_sample(
-            graph, mapped_left, rng, degree_groups, sorted_degrees, graph_nodes
-        )
-        sample_b, error_b = _degree_matched_sample(
-            graph, mapped_right, rng, degree_groups, sorted_degrees, graph_nodes
-        )
-        values_a = [disease_distances[item] for item in sample_a if item in disease_distances]
-        values_b = [disease_distances[item] for item in sample_b if item in disease_distances]
-        if values_a and values_b:
-            random_a.append(float(np.mean(values_a)))
-            random_b.append(float(np.mean(values_b)))
-            match_errors_a.append(error_a)
-            match_errors_b.append(error_b)
+    def sample_distribution(template: Set[str]) -> Tuple[List[float], List[float], Dict[str, Any]]:
+        seed_record = [NETWORK_METHOD_VERSION, int(random_seed), sorted(template), sorted(mapped_disease)]
+        query_seed = int.from_bytes(sha256(json.dumps(seed_record).encode("utf-8")).digest()[:8], "big")
+        rng = np.random.default_rng(query_seed)
+        distances: List[float] = []
+        errors: List[float] = []
+        rejected = {"incomplete_size": 0, "incomplete_reachability": 0}
+        for _ in range(requested):
+            sample, error = _degree_matched_sample(
+                graph, template, rng, degree_groups, sorted_degrees, graph_nodes
+            )
+            if len(sample) != len(template):
+                rejected["incomplete_size"] += 1
+                continue
+            if any(item not in disease_distances or not math.isfinite(disease_distances[item]) for item in sample):
+                rejected["incomplete_reachability"] += 1
+                continue
+            distances.append(float(np.mean([disease_distances[item] for item in sorted(sample)])))
+            errors.append(error)
+        return distances, errors, {
+            "requested": requested,
+            "accepted": len(distances),
+            "rejected": requested - len(distances),
+            "rejection_reasons": rejected,
+            "sample_size": len(template),
+            "query_seed": query_seed,
+        }
+
+    random_a, match_errors_a, audit_a = sample_distribution(mapped_left)
+    random_b, match_errors_b, audit_b = sample_distribution(mapped_right)
     n_valid = min(len(random_a), len(random_b))
     std_a = float(np.std(random_a, ddof=1)) if len(random_a) > 1 else 0.0
     std_b = float(np.std(random_b, ddof=1)) if len(random_b) > 1 else 0.0
@@ -433,8 +471,8 @@ def _cheng_metrics(
     hits_b = 1 + sum(value <= float(observed_b) for value in random_b)
     p_a = hits_a / (len(random_a) + 1) if random_a else None
     p_b = hits_b / (len(random_b) + 1) if random_b else None
-    p_a_interval = _wilson_interval(hits_a, len(random_a) + 1) if random_a else None
-    p_b_interval = _wilson_interval(hits_b, len(random_b) + 1) if random_b else None
+    p_a_interval = _wilson_interval(hits_a - 1, len(random_a)) if random_a else None
+    p_b_interval = _wilson_interval(hits_b - 1, len(random_b)) if random_b else None
     p_a_adjusted = min(1.0, 2.0 * p_a) if p_a is not None else None
     p_b_adjusted = min(1.0, 2.0 * p_b) if p_b is not None else None
     p_a_adjusted_interval = [min(1.0, 2.0 * value) for value in p_a_interval] if p_a_interval else None
@@ -457,6 +495,7 @@ def _cheng_metrics(
     )
     randomization_ok = (
         requested >= MIN_ADEQUATE_RANDOMIZATIONS
+        and n_valid >= MIN_ADEQUATE_RANDOMIZATIONS
         and n_valid >= math.ceil(0.9 * requested)
     )
     null_ok = std_a > 0 and std_b > 0
@@ -465,13 +504,14 @@ def _cheng_metrics(
     degree_match_ok_a = mean_match_error_a is not None and mean_match_error_a <= max_degree_match_log_error
     degree_match_ok_b = mean_match_error_b is not None and mean_match_error_b <= max_degree_match_log_error
     degree_match_ok = degree_match_ok_a and degree_match_ok_b
-    near_a = near_a_raw and degree_match_ok_a
-    near_b = near_b_raw and degree_match_ok_b
+    quality = "adequate" if mapping_ok and randomization_ok and null_ok and degree_match_ok else "limited"
+    near_a = bool(near_a_raw and quality == "adequate")
+    near_b = bool(near_b_raw and quality == "adequate")
     overlap = bool(mapped_left & mapped_right) or s_ab < 0.0
     if near_a and near_b:
         pattern = "P1" if overlap else "P2"
     elif near_a != near_b:
-        pattern = "P4_edge" if overlap else "P4"
+        pattern = "P3" if overlap else "P4"
     elif overlap:
         pattern = "P5"
     else:
@@ -487,13 +527,16 @@ def _cheng_metrics(
         warnings.append("degenerate_degree_matched_null")
     if not degree_match_ok:
         warnings.append("poor_degree_match_quality")
-    quality = "adequate" if mapping_ok and randomization_ok and null_ok and degree_match_ok else "limited"
     return {
+        **method_metadata,
         "valid": True,
         "pattern": pattern,
         "quality_status": quality,
         "statistically_supported": bool(near_a or near_b),
         "pair_interaction_supported": bool(near_a and near_b),
+        "both_drugs_disease_proximity_supported": bool(near_a and near_b),
+        "near_A": near_a,
+        "near_B": near_b,
         "z_A": z_a,
         "z_B": z_b,
         "p_A": p_a,
@@ -513,6 +556,8 @@ def _cheng_metrics(
         "d_AB": d_ab,
         "n_randomizations": requested,
         "n_valid_randomizations": n_valid,
+        "randomization_audit": {"drug1": audit_a, "drug2": audit_b},
+        "monte_carlo_interval_method": "Wilson_on_raw_exceedances_without_pseudocount",
         "minimum_randomizations_for_adequate_quality": MIN_ADEQUATE_RANDOMIZATIONS,
         "random_seed": random_seed,
         "degree_match_mean_log_error": (
@@ -537,8 +582,6 @@ def _cheng_metrics(
             "q975": float(np.quantile(random_b, 0.975)) if random_b else None,
         },
         "network_coverage": coverage,
-        "distance_method": "confidence_weighted_symmetric_closest_set",
-        "null_method": "degree_matched_fixed_disease_module",
         "warnings": warnings,
     }
 
@@ -592,6 +635,8 @@ def classify_mechanism(
     selected2 = list(drug2_targets[:top_k])
     left = _target_set(selected1, top_k)
     right = _target_set(selected2, top_k)
+    inference_left = _target_set(drug1_targets, len(drug1_targets))
+    inference_right = _target_set(drug2_targets, len(drug2_targets))
     if not left or not right:
         return MechanismResult(
             mechanism_type="unknown",
@@ -606,8 +651,8 @@ def classify_mechanism(
     pathways_left = context.pathways_for(left)
     pathways_right = context.pathways_for(right)
     descriptive_shared_pathways = sorted(set(pathways_left) & set(pathways_right))
-    enrichment_left_records = context.pathway_enrichment(left)
-    enrichment_right_records = context.pathway_enrichment(right)
+    enrichment_left_records = context.pathway_enrichment(inference_left)
+    enrichment_right_records = context.pathway_enrichment(inference_right)
     enrichment_left = {
         str(item["pathway"]): item
         for item in enrichment_left_records
@@ -678,8 +723,8 @@ def classify_mechanism(
     disease = context.disease_genes(disease_label)
     cheng = _cheng_metrics(
         context.ppi,
-        left,
-        right,
+        inference_left,
+        inference_right,
         disease,
         samples=requested_randomizations,
         random_seed=random_seed,
@@ -688,10 +733,16 @@ def classify_mechanism(
         distance_lookup=context.target_distance,
         degree_sampling_index=context.degree_sampling_index(),
     )
+    cheng["target_set_scope"] = "complete_input_profiles_before_context_top_k"
+    cheng["statistical_target_sets"] = {"drug1": sorted(inference_left), "drug2": sorted(inference_right)}
     disease_coverage_left = len(left & disease) / max(1, len(left))
     disease_coverage_right = len(right & disease) / max(1, len(right))
 
     metrics = {
+        "statistical_contract_version": STATISTICAL_CONTRACT_VERSION,
+        "inference_target_policy": "complete_input_profiles_before_context_top_k",
+        "context_top_k_role": "display_and_exploratory_rule_selection_not_statistical_selection",
+        "statistical_target_sets": {"drug1": sorted(inference_left), "drug2": sorted(inference_right)},
         "target_jaccard": jaccard,
         "n_targets_drug1": len(left),
         "n_targets_drug2": len(right),
@@ -706,6 +757,7 @@ def classify_mechanism(
         "functional_pattern_score": functional[1] if functional else None,
         "functional_pattern_description": functional[2] if functional else "",
         "pathway_enrichment": {
+            "target_set_scope": "complete_input_profiles_before_context_top_k",
             "method": "one_sided_hypergeometric_BH_FDR",
             "fdr_threshold": 0.05,
             "pathway_size_bounds": {"minimum": 5, "maximum": 500},
@@ -756,7 +808,7 @@ def classify_mechanism(
         "P1": ("high_overlap", 0.70, "Both drugs occupy overlapping network neighborhoods near the disease module."),
         "P2": ("complementary_exposure", 0.90, "Both drugs are close to the disease module in distinct network neighborhoods."),
         "P4": ("single_exposure", 0.60, "Only one drug is directly close to the disease module."),
-        "P4_edge": ("overlapping_single_exposure", 0.50, "Only one drug is close to the disease module, with overlap between the target neighborhoods."),
+        "P3": ("overlapping_single_exposure", 0.50, "Only one drug is close to the disease module, with overlap between the target neighborhoods; resistance reversal is not established."),
     }
     if jaccard >= 0.3 or len(shared) >= 2:
         shared_directions = [
@@ -810,7 +862,7 @@ def classify_mechanism(
     elif complementary:
         mechanism = "distinct_annotated_processes"
         confidence = min(0.55, 0.35 + 0.02 * len(complementary))
-        description = "The target profiles have distinct pathway annotations; no pathway interaction or enrichment test was performed."
+        description = "The target profiles have distinct enriched pathway annotations; individual enrichment does not test inter-pathway interaction or synergy."
     elif cross_distance is not None and cross_distance <= 2.0:
         mechanism = "network_proximal_targets"
         confidence = min(0.72, 0.48 + 0.10 * (2.0 - cross_distance))

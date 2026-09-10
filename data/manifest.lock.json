@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "manifest_kind": "source_integrity_lock",
   "project": "InterpreterPLATO",
-  "recorded_at_utc": "2026-07-15T08:56:16.7830945Z",
+  "recorded_at_utc": "2026-07-23T06:51:44.062432Z",
   "coverage": "Versioned source checks, explicitly labeled local-only snapshots, and the HGNC-normalized production build are hash-locked.",
   "resources": [
     {
@@ -134,7 +134,7 @@
         "filename": "chembl_r37_target_hgnc_mapping_qc.json",
         "relative_path": "data/processed/context/chembl_r37_target_hgnc_mapping_qc.json",
         "size_bytes": 2165,
-        "sha256": "d883f2772c1fa58cc52b11ebf2f1d8ecd593d08863986b84b16acf6ea01a6ca1"
+        "sha256": "3da585c5f8fbff2e5301fd9443748991b009bf82201ae194879f5dc1c8870bfc"
       }
     },
     {
@@ -156,23 +156,35 @@
     },
     {
       "source": "DepMap",
-      "dataset": "Model metadata companion snapshots",
-      "version": "unknown (versionless local snapshots)",
-      "verification_status": "local_snapshot_only",
-      "verification_note": "These versionless files are outside the 26Q1 subdirectory, and their local bytes do not independently prove a DepMap release. They must not be represented as release-verified 26Q1 artifacts.",
+      "dataset": "Model and OmicsProfiles metadata companions",
+      "version": "DepMap Public 26Q1",
+      "landing_page_url": "https://depmap.org/portal/data_page/?release=DepMap+Public+26Q1&tab=allData",
+      "verification_status": "official_release_page_local_sha256_recorded",
+      "verification_note": "Model.csv and OmicsProfiles.csv were reacquired from the DepMap Public 26Q1 release page on 2026-07-23; their local SHA-256 digests match the previously locked local snapshots. No independently published upstream checksum was matched.",
       "artifacts": [
         {
           "filename": "Model.csv",
-          "relative_path": "data/raw/cell_line_context/depmap/Model.csv",
+          "landing_page_url": "https://depmap.org/portal/data_page/?file=Model.csv&release=DepMap+Public+26Q1",
+          "relative_path": "data/raw/cell_line_context/depmap/26Q1/Model.csv",
           "size_bytes": 697455,
           "sha256": "ea4e0b2a3bc806f81df62689a5ae75f1a100135727a3d7b8a4c7ccc8815183f8"
         },
         {
           "filename": "OmicsProfiles.csv",
-          "relative_path": "data/raw/cell_line_context/depmap/OmicsProfiles.csv",
+          "landing_page_url": "https://depmap.org/portal/data_page/?file=OmicsProfiles.csv&release=DepMap+Public+26Q1",
+          "relative_path": "data/raw/cell_line_context/depmap/26Q1/OmicsProfiles.csv",
           "size_bytes": 671558,
           "sha256": "978f9ff9a11214e9d923619c20d2bc36bf4ca3e30fd46a6d9a424ea0e7c49bd2"
-        },
+        }
+      ]
+    },
+    {
+      "source": "DepMap",
+      "dataset": "ModelCondition metadata companion snapshot",
+      "version": "unknown (versionless local snapshot)",
+      "verification_status": "local_snapshot_only",
+      "verification_note": "This optional companion is not used by the current expression builder and has not been reacquired from the 26Q1 release page.",
+      "artifacts": [
         {
           "filename": "ModelCondition.csv",
           "relative_path": "data/raw/cell_line_context/depmap/ModelCondition.csv",
@@ -281,8 +293,8 @@
         {
           "filename": "build_qc.json",
           "relative_path": "data/processed/context/build_qc.json",
-          "size_bytes": 11329,
-          "sha256": "2f1361d37e71e7e84a83756e1a25925719179f8f8623fa80241ebd990afec9c0"
+          "size_bytes": 11771,
+          "sha256": "44f1c1ebdbf7d8440b692be3019b6ef74059549b4b72b634646bba7e934375eb"
         },
         {
           "filename": "cell_line_model_map.tsv",

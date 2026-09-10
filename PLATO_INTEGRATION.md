@@ -139,11 +139,11 @@ candidate, and the parser can read its observed
 `raw_json_and_pdf_fixture_candidate` and `not_yet_allowlisted_for_scoring`.
 The production schema allowlist is therefore empty: this candidate reports
 `schema_fixture_verified=false` and cannot bind provider, release, or method for
-formal scoring. The manifest and JSON are supplied through a separate controlled
-data bundle. This code
-repository contains their lock metadata but does not distribute the fixture
-bytes, related PDFs, ordinary query responses, or restricted originals. A
-publishable sanitized derivative is a different artifact with its own hash.
+formal scoring. As the only small, controlled data exception, this repository
+tracks that manifest and JSON.
+Related PDFs, ordinary query responses, and other restricted originals belong in
+a separately controlled data bundle; a publishable sanitized derivative is a
+different artifact with its own hash.
 
 Approval must be an explicit reviewed change; the parser does not promote a
 candidate merely because a manifest or payload claims a release. Independent

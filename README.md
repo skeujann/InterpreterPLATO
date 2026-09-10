@@ -1,6 +1,35 @@
-# InterpreterPLATO 5.1
+# InterpreterPLATO 5.2
 
 InterpreterPLATO 是一个药物组合生物学解释器。它的作用不是重新训练一个靶点预测模型，而是把一对药物组合的靶点证据、癌症细胞系上下文、PPI 网络、通路和疾病基因集合整合起来，生成可审计的机制解释。
+
+## 论文研究定位（当前唯一输出语义）
+
+本项目当前定位为“论文中的可审计机制假说模块”。它生成的是基于给定药物对、
+PLATO 靶点和癌症上下文的 **post-hoc 生物学机制假说**，不是模型因果解释、实验验证、
+临床疗效概率或真实作用机制证明。`predicted_synergy` 默认只是随结果记录的上游输入；
+默认未接入上游模型重算，不得写成“解释了模型为何给出该分数”；调用方提供的扰动表即使
+通过内部一致性检查，仍属于未独立核验的证据，不能替代模型行为与归因验证。
+
+每个新结果都必须声明：
+
+- `research_contract_version=1.0`；
+- `run_mode=research_hypothesis | demo | test`；
+- `formal_result_eligible=false` 及不可升级的原因；
+- `generated_from_test_fixture`，防止合成测试进入论文结果；
+- 代码快照、Git 状态、有效配置、依赖、数据清单、PLATO 输入和策略版本的审计记录；
+- 结果内部 canonical JSON 哈希，以及落盘文件的精确字节 `.sha256` sidecar。
+
+即使未来 PLATO schema 和来源完整性门禁通过，当前研究合同也不会自动把输出升级为
+“正式机制结论”。门禁回答的是“输入证据是否允许进入分析”，研究合同回答的是
+“分析结果最多能声称什么”。详细边界和论文报告要求见
+[论文机制假说模块范围](docs/THESIS_INTERPRETATION_SCOPE.md)。
+
+当前统计合同为 `statistical_contract_version=1.0`。网络分析采用明确版本化的自定义
+`weighted_fixed_disease_closest_v2`，不是 Cheng 等人的严格方法复现，也未完成外部校准。
+完整合格 PLATO 靶点集用于网络统计和通路富集；上下文 top-k 仅用于展示和探索性规则选择。
+精确定义、零模型、支持判据和批量检验边界见[统计方法与推断边界](docs/STATISTICAL_METHODS.md)。
+后续独立评测遵循[拟议验证协议](docs/VALIDATION_PROTOCOL.md)，其状态是
+`proposed_not_executed`，不能将软件回归测试当作真实机制验证。
 
 当前版本采用严格的 `PLATO-only` 靶点策略：
 
@@ -14,7 +43,8 @@ InterpreterPLATO 是一个药物组合生物学解释器。它的作用不是重
 
 ## 当前生产状态
 
-正式结果必须同时满足以下条件：
+真实 PLATO 输入进入研究机制假说分析，必须先同时满足以下输入门禁；通过这些门禁仍不
+产生已验证的“正式机制结论”：
 
 - PLATO 缓存 schema 为 `3`。
 - 两个药物的原始 PLATO 响应字节流都被不可变保存，并记录 SHA-256。
@@ -32,9 +62,9 @@ InterpreterPLATO 是一个药物组合生物学解释器。它的作用不是重
 candidate，可用于回归检查 `chemblId / nome / score / validato / simili` parser contract。
 它的 manifest 仍标记为 `raw_json_and_pdf_fixture_candidate` 和
 `not_yet_allowlisted_for_scoring`；production schema allowlist 当前为空，因此该 candidate
-会得到 `schema_fixture_verified=false`，不能绑定 PLATO/r37 来源或打开正式计分。fixture
-manifest、target-fishing JSON、PDF 和普通查询响应都不随代码提交；获授权的部署须从单独
-受控数据包把所需 manifest 和 JSON 放到：
+会得到 `schema_fixture_verified=false`，不能绑定 PLATO/r37 来源或打开正式计分。本代码发布
+不包含 fixture manifest、target-fishing JSON、PDF、普通查询响应或其他受限原件。
+需要真实 fixture 回归时，由获授权的数据保管者单独提供受控数据包并恢复到：
 
 ```text
 InterpreterPLATO/data/raw/plato/r37/golden_fixture/
@@ -47,12 +77,17 @@ allowlist 和测试。`pred.html` 这类 JSON 响应本身没有
 PLATO 原始导出 SHA-256 独立 allowlist、可靠人源蛋白靶点等门禁。手写 JSON、
 手动填写 release、或者声明“这个文件来自 PLATO”，都不能打开正式计分门禁。
 
-未来通过全部门禁的正式结果会声明：
+当前实现生成的结果（包括未来通过输入门禁的研究假说）会声明：
 
-- `result_schema_version=5.1`
-- `credibility.formula_version=evidence_credibility_v4_verified_plato_only`
+- `result_schema_version=5.2`
+- `statistical_contract_version=1.0`
+- `credibility.formula_version=evidence_credibility_v5_frozen_statistical_targets`
+- `network_statistics.method_version=weighted_fixed_disease_closest_v2`
 
-旧 schema 3/4/5.0、旧公式 v1/v2/v3 的结果只是历史审计产物，不能和 v5.1 分数直接比较。`evidence_credibility_score` 表示证据完整性和可审计性，不是靶点预测正确概率、临床疗效概率或实验成功率。
+旧 schema 3/4/5.0/5.1 以及旧公式 v1/v2/v3/v4 的结果只保留历史审计意义，必须从原始输入
+按当前协议重新运行，不能通过改版本号升级，也不能与 5.2 分数直接比较。
+`evidence_credibility_score` 是未校准的证据评价规则分，不是靶点预测正确概率、临床疗效
+概率或实验成功率；输入可审计、规则支持、敏感性和独立验证应分开报告。
 
 ## 一对药物：依次查询 PLATO 并进入机制解释
 
@@ -92,20 +127,21 @@ python InterpreterPLATO/scripts/query_pair_and_explain.py `
 默认输出目录：
 
 ```text
-InterpreterPLATO/outputs/plato_pair_runs/<timestamp>_<drug1>__<drug2>/
+InterpreterPLATO/outputs/research/plato_pair_runs/<timestamp>_<drug1>__<drug2>/
 ```
 
 目录里会保存 `raw_plato/`、`plato_cache/` 和 `run_manifest.json`；只有外部
-allowlist 等正式门禁全部通过时才会生成 `explanation.json`。`pred.html` 是 PLATO
+allowlist 等完整性门禁全部通过时才会生成研究机制假说 `explanation.json` 及
+`explanation.json.sha256`。`pred.html` 是 PLATO
 表单页面路径；脚本请求的是 `tipoout=json`，所以本地保存和解析的是 JSON 响应，
 不是普通 HTML 页面。
 
 pair 脚本不会把本次捕获的 SHA-256 自动当成可信 allowlist。同次计算的哈希只证明
 保存后的字节未变化，不能证明响应来源。未传入或未匹配
 `--trusted-plato-sha256` 时，脚本会保留两次查询的 raw、sidecar、cache 和 manifest，
-随后以退出码 2 停止，不生成正式解释。首次采集建议先归档，再由独立审核记录批准
+随后以退出码 2 停止，不生成机制假说。首次采集建议先归档，再由独立审核记录批准
 两个原始响应哈希。只有 fixture 审核完成并启用 production schema gate 后，才能使用现有
-cache 和 `run_interpreter.py` 正式计分。
+cache 和 `run_interpreter.py` 生成研究假说及未校准规则分，不能升级为正式机制结论。
 
 ## 单个药物：查询并归档一个 PLATO 结果
 
@@ -164,7 +200,7 @@ python InterpreterPLATO/scripts/run_interpreter.py summary `
   --drug1 "Drug-A" --drug2 "Drug-B" `
   --drug1-smiles "SMILES-A" --drug2-smiles "SMILES-B" `
   --cell-line A549 --disease-label pan_cancer_tier1 `
-  --output InterpreterPLATO/outputs/drug-a__drug-b.json
+  --output InterpreterPLATO/outputs/research/drug-a__drug-b.json
 ```
 
 CLI 会在正式运行前预检输入和缓存状态。以下情况会直接失败，并且不会写出正式分数：
@@ -199,13 +235,25 @@ drug1_name, drug2_name, drug1_smiles, drug2_smiles
 cell_line, predicted_synergy, advanced, disease_label, model_fidelity_evidence
 ```
 
-批量模式会记录单对基础分和批量 FDR 调整后的分数：
+批量模式把单对规则分与批量统计支持分开：
 
-- `base_score`：单对药物组合在独立解释时的基础分。
-- `batch_adjusted_score`：批量 Benjamini-Hochberg FDR 调整后的分数。
-- `score_profile.name`：`single_pair` 或 `batch_BH_FDR`。
+- `base_score` 保留单对基础分；兼容字段 `batch_adjusted_score` 与本地分数相等，不再施加固定扣分。
+- `score_profile.name=single_pair`；`batch_FDR_applied=true` 表示做了批量检验，
+  `batch_FDR_adjustment_applied=false` 表示没有把它改写成分数调整。
+- `single_pair_mechanism_supported` 与 `batch_mechanism_supported` 分开保存；非网络主机制的
+  后者为 `null`，不能用药物－疾病邻近性检验替它背书。
+- `network_statistics.batch_q_A/B`、`batch_required_sides`、`batch_pattern_status` 和
+  `batch_family` 保存校正结果、模式所需药物侧及检验家族身份。
 
-这样同一对药物在单独运行和批量运行时，即使分数不同，也能追踪差异来源。
+每个传入批次的 N 对结果保留全部 2N 个计划药物－疾病检验；无效或不可评估的检验按
+`p=1` 留在家族中且不能建立支持。双药邻近模式要求两侧均满足支持条件，单药暴露模式仅
+要求原本邻近的那一侧。检验家族记录药物结构、来源哈希、固定靶点、上下文 artifact 和方法，
+不以观察到的显著性定义身份。缺失身份字段会被显式标记，不能当作完整审计。
+
+本函数只校正传入批次，不自动覆盖整篇论文。研究者必须预先冻结完整研究家族，不能拆分
+批次挑选显著结果。BH 的独立性或适当正相关条件及当前自定义零模型的可交换性未经验证，
+因此这里报告的是探索性的条件零模型支持，不宣称已经实现校准的总体错误率控制；
+不显著也不等于证明没有机制或没有协同。详见[统计合同](docs/STATISTICAL_METHODS.md)。
 
 ## 数据与上下文
 
@@ -265,6 +313,7 @@ InterpreterPLATO/data/processed/archive/pre_plato_only/
 
 ```text
 InterpreterPLATO/outputs/archive/pre_plato_only/
+InterpreterPLATO/outputs/archive/pre_research_contract_20260718/
 ```
 
 这些文件只保留审计历史，不能作为当前生产结果或回归基线。
@@ -273,7 +322,7 @@ InterpreterPLATO/outputs/archive/pre_plato_only/
 
 `pyproject.toml` 约束 Python 3.9--3.12；`requirements.lock` 和 `requirements-dev.lock` 固定本次审核环境的依赖版本。RDKit 是必需依赖，因为严格结构绑定依赖 RDKit 完成 SMILES 解析、规范化和 InChIKey 生成。每项数据的官方来源、当前 release、获取限制和 checksum 证据见[数据来源与获取说明书](docs/DATA_SOURCES.md)；首次准备当前锁定数据见 [Data bootstrap](docs/DATA_BOOTSTRAP.md)；升级数据版本、重建、审核、更新 locks 和回滚见[数据更新操作手册](docs/DATA_UPDATE_GUIDE.md)。
 
-正式运行时建议同时记录：
+研究运行的 `audit` 会自动记录关键版本与哈希；论文归档时还建议同时保存：
 
 - Python 版本。
 - 解析后的依赖版本，例如 `pip freeze`。
@@ -296,6 +345,5 @@ python -m pytest InterpreterPLATO/tests
 程序记录了本地 Gemcitabine r37 fixture candidate 的 schema fingerprint，但 production
 allowlist 当前为空，所以 `schema_fixture_verified=false`，正式评分会 fail closed。fixture
 独立审核并获批后，还必须在同一 reviewed change 中更新 manifest/provenance、代码 allowlist
-和测试；两个药物也要分别通过 query binding 与独立 raw-SHA allowlist。代码发布只包含
-fixture 的 lock 元数据，不包含 manifest 或 JSON 字节；runtime lock 只校验补齐后的字节
-身份，不能替代这些信任门禁。
+和测试；两个药物也要分别通过 query binding 与独立 raw-SHA allowlist。runtime lock 只
+校验 fixture 字节身份，不能替代这些信任门禁。

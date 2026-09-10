@@ -45,23 +45,23 @@
     },
     {
       "id": "depmap_model",
-      "default_path": "data/raw/cell_line_context/depmap/Model.csv",
+      "default_path": "data/raw/cell_line_context/depmap/26Q1/Model.csv",
       "path_base": "package",
       "size_bytes": 697455,
       "sha256": "ea4e0b2a3bc806f81df62689a5ae75f1a100135727a3d7b8a4c7ccc8815183f8",
-      "source": "DepMap model metadata local snapshot",
-      "acquisition_url": "https://depmap.org/portal/download/all/",
-      "redistribution": "Versionless local snapshot; do not label it 26Q1 without independent evidence."
+      "source": "DepMap Public 26Q1 model metadata",
+      "acquisition_url": "https://depmap.org/portal/data_page/?file=Model.csv&release=DepMap+Public+26Q1",
+      "redistribution": "Review DepMap terms for the selected release."
     },
     {
       "id": "depmap_profiles",
-      "default_path": "data/raw/cell_line_context/depmap/OmicsProfiles.csv",
+      "default_path": "data/raw/cell_line_context/depmap/26Q1/OmicsProfiles.csv",
       "path_base": "package",
       "size_bytes": 671558,
       "sha256": "978f9ff9a11214e9d923619c20d2bc36bf4ca3e30fd46a6d9a424ea0e7c49bd2",
-      "source": "DepMap omics profile metadata local snapshot",
-      "acquisition_url": "https://depmap.org/portal/download/all/",
-      "redistribution": "Versionless local snapshot; do not label it 26Q1 without independent evidence."
+      "source": "DepMap Public 26Q1 omics profile metadata",
+      "acquisition_url": "https://depmap.org/portal/data_page/?file=OmicsProfiles.csv&release=DepMap+Public+26Q1",
+      "redistribution": "Review DepMap terms for the selected release."
     },
     {
       "id": "scoreri_cell_lines",

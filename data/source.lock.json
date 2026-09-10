@@ -14,9 +14,9 @@
   "artifacts": [
     {"relative_path": "data/raw/cancer_driver_context/oncokb/cancerGeneList.tsv", "size_bytes": 136855, "sha256": "09da76a4a92a65b71069ccc8f6c981a3cb8bb836baac0d43f67776e2ddaac05c"},
     {"relative_path": "data/raw/cell_line_context/depmap/26Q1/OmicsExpressionTPMLogp1HumanProteinCodingGenes.csv", "size_bytes": 305007605, "sha256": "0377be80c525fde98cbd2c6e8b06bdf2a4014a9683eb70182c1f8649d711021a"},
-    {"relative_path": "data/raw/cell_line_context/depmap/Model.csv", "size_bytes": 697455, "sha256": "ea4e0b2a3bc806f81df62689a5ae75f1a100135727a3d7b8a4c7ccc8815183f8"},
+    {"relative_path": "data/raw/cell_line_context/depmap/26Q1/Model.csv", "size_bytes": 697455, "sha256": "ea4e0b2a3bc806f81df62689a5ae75f1a100135727a3d7b8a4c7ccc8815183f8"},
+    {"relative_path": "data/raw/cell_line_context/depmap/26Q1/OmicsProfiles.csv", "size_bytes": 671558, "sha256": "978f9ff9a11214e9d923619c20d2bc36bf4ca3e30fd46a6d9a424ea0e7c49bd2"},
     {"relative_path": "data/raw/cell_line_context/depmap/ModelCondition.csv", "size_bytes": 223524, "sha256": "8060accf252366d165618d80808e4e903ce5142de22fbd400a785ed195c1eb60"},
-    {"relative_path": "data/raw/cell_line_context/depmap/OmicsProfiles.csv", "size_bytes": 671558, "sha256": "978f9ff9a11214e9d923619c20d2bc36bf4ca3e30fd46a6d9a424ea0e7c49bd2"},
     {"relative_path": "data/raw/disease/cosmic/v101/Cosmic_CancerGeneCensus_Tsv_v101_GRCh38.tar", "size_bytes": 71680, "sha256": "2e9565c45e89985fb1c096f29af7cc67166ffaf4eb8964f004986f653e22c755"},
     {"relative_path": "data/raw/disease/cosmic/v101/Cosmic_CancerGeneCensus_v101_GRCh38.tsv", "size_bytes": 152821, "sha256": "c7cc8514db46411bc88e01efde97070cb229f19175ac76207a8cca69b1f108b0"},
     {"relative_path": "data/raw/disease/cosmic/v101/Cosmic_CancerGeneCensus_v101_GRCh38.tsv.gz", "size_bytes": 60623, "sha256": "26f44e3a990c787d43c2eaf52805a54732fc092218509fb0280ad1495437591e"},
