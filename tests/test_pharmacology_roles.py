@@ -40,6 +40,12 @@ def resource():
     return json.loads((ROOT/'data/pharmacology_roles_v1.json').read_text(encoding='utf-8'))
 
 
+def test_bundled_resource_has_portable_lf_bytes_and_pinned_identity():
+    raw = (ROOT/'data/pharmacology_roles_v1.json').read_bytes()
+    assert b'\r' not in raw, 'The bundled resource must retain LF bytes on every platform'
+    assert hashlib.sha256(raw).hexdigest() == DEFAULT_ROLE_SHA256
+
+
 def test_known_roles_preserve_candidates_scores_order_and_original_evidence():
     original = [item('ATIC', 0.9), item('DHFR', 0.6), item('FPGS', 0.5), item('SLC19A1', 0.4)]
     before = deepcopy(original)

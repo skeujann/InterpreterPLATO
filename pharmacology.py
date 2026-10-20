@@ -17,7 +17,8 @@ from .context import ContextScore, gene
 from .targets import standardize_smiles
 
 ROLE_POLICY_VERSION = "drug_specific_literature_roles_v1"
-DEFAULT_ROLE_SHA256 = "bae209bcbd9482712b023a6319640ed8af3d50ddffe907d320e8bfc6c7d6b90a"
+# Pin the LF bytes stored in Git, as enforced by .gitattributes on checkout.
+DEFAULT_ROLE_SHA256 = "f5a42b7b2f7d55d8b2438d9d9c8514d9f53ed04a67f183e65cd74ca69971be5f"
 HANDLING_ROLES = frozenset({"drug_metabolism", "drug_transport", "drug_activation_retention"})
 ALLOWED_ROLES = HANDLING_ROLES | {"pharmacodynamic_target", "context_association"}
 
