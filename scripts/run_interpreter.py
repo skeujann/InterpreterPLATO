@@ -14,6 +14,7 @@ PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE.parent))
 
 from InterpreterPLATO import ExplanationPipeline
+from InterpreterPLATO.connectivity import validate_path_search
 from InterpreterPLATO.targets import CACHE_SCHEMA_VERSION, PlatoPredictionCache
 
 
@@ -39,7 +40,22 @@ FORBIDDEN_TARGET_FIELDS = {
 }
 
 
+def add_path_arguments(command: argparse.ArgumentParser) -> None:
+    command.add_argument("--path-max-length", type=int, default=5, help="Maximum PPI hops per evidence path (0-20)")
+    command.add_argument("--max-evidence-paths", type=int, default=10, help="Maximum displayed target-to-disease paths (0-100)")
+    command.add_argument("--max-cross-drug-paths", type=int, default=5, help="Maximum displayed cross-drug PPI paths (0-100)")
+
+
+def path_options_from_args(args: argparse.Namespace) -> Dict[str, int]:
+    return validate_path_search({
+        "max_length": args.path_max_length,
+        "max_paths": args.max_evidence_paths,
+        "max_cross_drug_paths": args.max_cross_drug_paths,
+    })
+
+
 def add_context_arguments(command: argparse.ArgumentParser) -> None:
+    add_path_arguments(command)
     context = command.add_mutually_exclusive_group(required=True)
     context.add_argument(
         "--context-config",
@@ -248,6 +264,10 @@ def main() -> int:
     batch.add_argument("--output", required=True)
 
     args = parser.parse_args()
+    try:
+        path_options = path_options_from_args(args)
+    except ValueError as exc:
+        parser.error(str(exc))
     rows: List[Dict[str, Any]] = []
     if args.command == "batch":
         rows = _load_batch(parser, args.input)
@@ -277,6 +297,7 @@ def main() -> int:
         parser, args.plato_cache, queries, args.trusted_plato_sha256
     )
     pipeline_config: Dict[str, Any] = {
+        "path_search": path_options,
         "run_mode": "research_hypothesis",
         "generated_from_test_fixture": False,
         "target_mode": "plato_only",
@@ -304,9 +325,11 @@ def main() -> int:
     if args.command == "batch":
         destination = _prepare_output(parser, args.output)
         try:
-            pipe.explain_batch(rows, str(destination))
+            results = pipe.explain_batch(rows, str(destination))
         except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             parser.error(f"unable to explain batch: {exc}")
+        for result in results:
+            result.print_summary()
         return 0
 
     try:

@@ -226,6 +226,9 @@ class ContextScore:
     pathway_mapped: bool = False
     disease_context_available: bool = False
     scoring_notes: List[str] = field(default_factory=list)
+    pharmacology: Dict[str, Any] = field(default_factory=dict)
+    ordering_policy: str = "context_score_descending"
+    ordering_score: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

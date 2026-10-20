@@ -224,6 +224,32 @@ def standardize_smiles(smiles: str) -> Dict[str, Any]:
     return result
 
 
+def stereo_agnostic_smiles(smiles: str) -> str:
+    """Remove only stereochemistry; retain isotopes, charge, bonds and components."""
+    from rdkit import Chem
+
+    molecule = Chem.MolFromSmiles(_text(smiles))
+    if molecule is None or not _text(smiles):
+        raise ValueError("A valid nonempty SMILES is required for structure grouping")
+    Chem.RemoveStereochemistry(molecule)
+    return Chem.MolToSmiles(molecule, canonical=True, isomericSmiles=True)
+
+
+def structure_identity_matches(query: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
+    """Compare identities under an explicit request policy without rewriting either."""
+    actual = standardize_smiles(_text(query.get("canonical_isomeric_smiles")))
+    if not actual.get("valid") or actual.get("inchikey") != query.get("inchikey"):
+        return False
+    if expected.get("ignore_stereochemistry") is True:
+        try:
+            return stereo_agnostic_smiles(actual["canonical_isomeric_smiles"]) == stereo_agnostic_smiles(
+                _text(expected.get("canonical_isomeric_smiles")))
+        except (ValueError, ImportError):
+            return False
+    return (actual["canonical_isomeric_smiles"] == expected.get("canonical_isomeric_smiles")
+            and actual["inchikey"] == expected.get("inchikey"))
+
+
 def _legacy_smiles_cache_key(smiles: str) -> str:
     return sha256(_text(smiles).encode("utf-8")).hexdigest()
 
@@ -1331,6 +1357,84 @@ class PlatoPredictionCache:
         legacy = self.root / f"{_legacy_smiles_cache_key(smiles)}.json"
         return [canonical] if canonical == legacy else [canonical, legacy]
 
+    def load_ignoring_stereochemistry(self, smiles: str) -> Tuple[List[PlatoTargetEvidence], Dict[str, Any]]:
+        """Reuse a consistent connectivity group, retaining exact query provenance.
+
+        Original cache keys and raw records remain stereospecific and immutable.
+        Conflicting predictions in a group are returned as an explicit conflict.
+        """
+        requested = standardize_smiles(smiles)
+        group = stereo_agnostic_smiles(smiles)
+        exact_targets, exact = self.load(smiles)
+        matching = {"policy": "ignore_stereochemistry", "requested_structure": requested,
+                    "canonical_group_smiles": group, "isotopes_charge_and_components_preserved": True}
+        candidates: Dict[str, str] = {}
+        if str(exact.get("status", "")).startswith("cache_hit"):
+            # Never hide a corrupted exact entry behind a different group member.
+            exact_query = exact.get("query", {})
+            if (not structure_identity_matches(exact_query, requested)
+                    or exact.get("parser_warnings") and any(
+                        "mismatch" in str(value) or "integrity" in str(value)
+                        for value in exact["parser_warnings"])):
+                exact["structure_matching"] = {**matching, "status": "invalid_exact_entry"}
+                return exact_targets, exact
+            candidates[exact_query["canonical_isomeric_smiles"]] = exact["cache_path"]
+        for path in sorted(self.root.glob("*.json")):
+            try:
+                envelope = _loads_strict_json(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, UnicodeError):
+                continue  # Unrelated exports are not cache entries.
+            if not isinstance(envelope, Mapping) or envelope.get("alias_to"):
+                continue
+            query = envelope.get("query", {})
+            if not isinstance(query, Mapping):
+                continue
+            source_smiles = _text(query.get("canonical_isomeric_smiles"))
+            if not source_smiles or not envelope.get("cache_schema_version"):
+                continue
+            try:
+                matches = stereo_agnostic_smiles(source_smiles) == group
+            except (ValueError, ImportError):
+                matches = False
+            if matches and path.resolve() in {candidate.resolve() for candidate in self._candidate_paths(source_smiles)}:
+                candidates[source_smiles] = str(path)
+        if not candidates:
+            exact["structure_matching"] = {**matching, "status": "no_group_cache"}
+            return exact_targets, exact
+        members, loaded = [], []
+        for source_smiles in sorted(candidates, key=lambda value: (value != group, value)):
+            parsed, metadata = self.load(source_smiles)
+            query = metadata.get("query", {})
+            # Rank records provider order; compare substantive target evidence.
+            snapshots = [{key: value for key, value in target.to_dict().items() if key != "rank"}
+                         for target in parsed]
+            fingerprint = _payload_sha256(sorted(snapshots, key=lambda value: json.dumps(value, sort_keys=True)))
+            member = {"cache_path": metadata.get("cache_path"), "query_smiles": source_smiles,
+                      "inchikey": query.get("inchikey"), "raw_sha256": metadata.get("source", {}).get("sha256"),
+                      "target_snapshot_sha256": fingerprint}
+            members.append(member)
+            if (not structure_identity_matches(query, standardize_smiles(source_smiles))
+                    or metadata.get("raw_blob_integrity_status") != "verified_immutable_raw_blob"
+                    or any("mismatch" in str(value) or "integrity" in str(value)
+                           for value in metadata.get("parser_warnings", []))):
+                metadata["structure_matching"] = {**matching, "status": "invalid_group_member", "members": members}
+                metadata["status"] = "cache_error_structure_group_integrity"
+                return [], metadata
+            loaded.append((parsed, metadata))
+        if len({member["target_snapshot_sha256"] for member in members}) != 1:
+            return [], {"status": "cache_error_stereoisomer_prediction_conflict",
+                        "error": "Same connectivity has different PLATO target results; no arbitrary merge performed",
+                        "structure_matching": {**matching, "status": "conflicting_predictions", "members": members}}
+        parsed, metadata = loaded[0]
+        metadata["structure_matching"] = {
+            **matching, "status": "matched", "members": members, "n_cached_structures": len(members),
+            "source_query_structure": dict(metadata["query"]),
+            "cross_stereochemistry_reuse": not structure_identity_matches(metadata["query"], requested),
+            "consistent_cached_target_results": True,
+            "equivalent_biological_activity_claimed": False,
+        }
+        return parsed, metadata
+
     def load(self, smiles: str) -> Tuple[List[PlatoTargetEvidence], Dict[str, Any]]:
         paths = self._candidate_paths(smiles)
         path = next((candidate for candidate in paths if candidate.exists()), paths[0])
@@ -2032,9 +2136,13 @@ class TargetResolver:
         provider_release: str = "r37",
         target_mapping: str | Path | None = None,
         target_mapping_sha256: str = "",
+        ignore_stereochemistry: bool = False,
     ):
         self.database = Path(database) if database else None
         self.cache = PlatoPredictionCache(plato_cache) if plato_cache else None
+        if not isinstance(ignore_stereochemistry, bool):
+            raise TypeError("ignore_stereochemistry must be true or false")
+        self.ignore_stereochemistry = ignore_stereochemistry
         self.target_mapper = ChemblTargetMapper(
             target_mapping,
             expected_sha256=target_mapping_sha256,
@@ -2336,7 +2444,8 @@ class TargetResolver:
         }
         if self.cache is not None and _text(smiles):
             try:
-                plato, cache_meta = self.cache.load(smiles)
+                plato, cache_meta = (self.cache.load_ignoring_stereochemistry(smiles)
+                                    if self.ignore_stereochemistry else self.cache.load(smiles))
             except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
                 cache_meta = {"status": "cache_error", "error": str(exc)}
         target_mapping_meta: Dict[str, Any] = {"status": "disabled"}

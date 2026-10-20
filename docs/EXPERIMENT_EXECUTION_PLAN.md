@@ -1,5 +1,10 @@
 # InterpreterPLATO 后续实验执行细则
 
+> **2026-10-13 范围调整：以下为保留的可选独立研究草案，不再是当前毕业论文必做清单。**
+> 当前执行 [工程验证方案](ENGINEERING_VALIDATION.md)：既有六个开发案例、来源审核、
+> 可用性/可追溯性测试及显式输入控制；不要求独立双人机制评阅，不宣称独立机制准确率。
+> 真实 PLATO 来源门禁不变；此调整不表示已完成真实案例验证。
+
 版本 `1.0-draft`；日期 2026-09-09；状态 `proposed_not_executed`。
 本文件将 [独立验证协议](VALIDATION_PROTOCOL.md)细化为工作量和记录格式，不替代
 [论文范围](THESIS_INTERPRETATION_SCOPE.md)或 [统计合同](STATISTICAL_METHODS.md)。
@@ -10,7 +15,7 @@
 目标：评估可审计机制假说的覆盖、证据一致性、越界声明和输入/资源敏感性。
 这是独立课题的核心验证，不仅是预测模块的案例展示。
 
-当前 schema 为 5.2；production PLATO schema allowlist 为空。真实案例输出前须完成
+当前 schema 为 5.4；production PLATO schema allowlist 为空。真实案例输出前须完成
 既定的来源审核、双药 raw-SHA/结构绑定以及 schema 审核。计划不授权修改 allowlist，
 也不将当前 `formal_result_eligible=false` 改为 true。
 

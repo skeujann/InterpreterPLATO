@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "interpreterplato"
-version = "5.2.0"
+version = "5.5.2"
 description = "Auditable PLATO-only drug-combination mechanism interpreter"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
@@ -20,6 +20,7 @@ dependencies = [
 test = ["pytest>=7.4.4,<9"]
 
 [project.scripts]
+plato-engineering = "InterpreterPLATO.scripts.run_engineering:main"
 interpreter-plato = "InterpreterPLATO.scripts.run_interpreter:main"
 plato-query-once = "InterpreterPLATO.scripts.query_plato_once:main"
 plato-query-pair = "InterpreterPLATO.scripts.query_pair_and_explain:main"
@@ -39,6 +40,7 @@ InterpreterPLATO = "."
 
 [tool.setuptools.package-data]
 InterpreterPLATO = [
+  "data/pharmacology_roles_v1.json",
   "data/production_context.example.json",
   "data/production_context.json",
   "data/runtime.lock.json",

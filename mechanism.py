@@ -21,8 +21,8 @@ MITOSIS = {"TUBB", "TUBA1B", "AURKA", "AURKB", "PLK1", "KIF11"}
 DNA_DAMAGE = {"TOP1", "TOP2A", "PARP1", "ATM", "ATR", "BRCA1", "BRCA2"}
 DNA_REPAIR = {"PARP1", "BRCA1", "BRCA2", "MGMT", "RAD51", "WEE1"}
 MIN_ADEQUATE_RANDOMIZATIONS = 1000
-NETWORK_METHOD_VERSION = "weighted_fixed_disease_closest_v2"
-STATISTICAL_CONTRACT_VERSION = "1.0"
+NETWORK_METHOD_VERSION = "weighted_fixed_disease_closest_v3_mapped_universe"
+STATISTICAL_CONTRACT_VERSION = "1.1"
 INHIBITORY_ACTION_TERMS = (
     "inhibitor", "inhibition", "antagonist", "blocker", "negative modulator",
     "negative allosteric", "degrader", "degradation", "suppressor", "inactivator", "inhibitory",
@@ -362,7 +362,7 @@ def _cheng_metrics(
         "separation_method": "mean_of_two_directed_closest_means_minus_within_set_nearest_means",
         "null_method": "degree_matched_fixed_disease_module_disjoint_complete_draws",
         "randomization_seed_policy": "sha256_base_seed_method_sorted_target_and_disease_sets",
-        "mapping_policy": "complete_observed_mapping_and_distances_required",
+        "mapping_policy": "fixed_ppi_universe_intersection_with_original_coverage_gate",
         "draw_policy": "reject_whole_draw_if_size_or_reachability_incomplete",
         "n_randomizations": max(0, int(samples)),
         "n_valid_randomizations": 0,
@@ -382,15 +382,45 @@ def _cheng_metrics(
         "drug2": _network_set_coverage(right, graph),
         "disease_module": _network_set_coverage(disease, graph),
     }
-    if (not mapped_left or not mapped_right or not mapped_disease
-            or mapped_left != left or mapped_right != right or mapped_disease != disease):
+    # Freeze the universe from the loaded PPI, independently of the query or
+    # its result. Inference is conditional on the mapped subsets, not on the
+    # assumption that unmapped genes have no biological effect.
+    excluded = {
+        "drug1": sorted(left - mapped_left),
+        "drug2": sorted(right - mapped_right),
+        "disease_module": sorted(disease - mapped_disease),
+    }
+    mapping_warnings = (
+        ["network_analysis_conditional_on_mapped_genes"] if any(excluded.values()) else []
+    )
+    method_metadata.update({
+        "analysis_universe": {
+            "policy": "all_loaded_ppi_nodes_before_query",
+            "node_count": graph.number_of_nodes(),
+            "node_ids_sha256": sha256(json.dumps(sorted(graph.nodes(), key=str)).encode("utf-8")).hexdigest(),
+            "minimum_original_mapping_coverage": min_mapping_coverage,
+        },
+        "analyzed_target_sets": {"drug1": sorted(mapped_left), "drug2": sorted(mapped_right)},
+        "analyzed_disease_genes": sorted(mapped_disease),
+        "excluded_unmapped_genes": excluded,
+    })
+    if not mapped_left or not mapped_right or not mapped_disease:
         return {
             **method_metadata,
             "valid": False,
             "pattern": "insufficient_network_support",
             "quality_status": "insufficient",
             "network_coverage": coverage,
-            "warnings": ["network_mapping_incomplete"],
+            "warnings": mapping_warnings + ["network_mapping_incomplete"],
+        }
+    if any(item["mapping_fraction"] < min_mapping_coverage for item in coverage.values()):
+        return {
+            **method_metadata,
+            "valid": False,
+            "pattern": "insufficient_network_support",
+            "quality_status": "insufficient",
+            "network_coverage": coverage,
+            "warnings": mapping_warnings + ["low_network_mapping_coverage"],
         }
     disease_distances = (
         disease_distances
@@ -413,7 +443,7 @@ def _cheng_metrics(
             "pattern": "insufficient_network_support",
             "quality_status": "insufficient",
             "network_coverage": coverage,
-            "warnings": ["network_components_disconnected"],
+            "warnings": mapping_warnings + ["network_components_disconnected"],
         }
 
     requested = max(0, int(samples))
@@ -516,7 +546,7 @@ def _cheng_metrics(
         pattern = "P5"
     else:
         pattern = "P6"
-    warnings: List[str] = []
+    warnings: List[str] = list(mapping_warnings)
     if not mapping_ok:
         warnings.append("low_network_mapping_coverage")
     if not randomization_ok:
@@ -602,7 +632,7 @@ def _functional_pattern(left: Set[str], right: Set[str], shared_pathways: Sequen
     if shared_pathways:
         return (
             "shared_pathway_co_modulation",
-            min(0.70, 0.52 + 0.03 * len(shared_pathways)),
+            0.52,
             "Distinct targets from both drugs are independently enriched in one or more common pathways after BH-FDR correction; action direction is not established.",
         )
     return None
@@ -714,7 +744,7 @@ def classify_mechanism(
         ):
             functional = (
                 "vertical_pathway_coblockade",
-                min(0.90, 0.60 + 0.05 * len(shared_pathways)),
+                0.60,
                 "Directionally supported inhibitory targets from both drugs converge on a shared pathway.",
             )
     cross_distance = _mean_cross_distance(
@@ -742,6 +772,13 @@ def classify_mechanism(
         "statistical_contract_version": STATISTICAL_CONTRACT_VERSION,
         "inference_target_policy": "complete_input_profiles_before_context_top_k",
         "context_top_k_role": "display_and_exploratory_rule_selection_not_statistical_selection",
+        "rule_score_policy": {
+            "semantics": "uncalibrated_exploratory_rule_score",
+            "pathway_count_bonus": False,
+            "cartesian_pair_count_bonus": False,
+            "shared_target_count_bonus_beyond_jaccard": False,
+            "external_calibration_performed": False,
+        },
         "statistical_target_sets": {"drug1": sorted(inference_left), "drug2": sorted(inference_right)},
         "target_jaccard": jaccard,
         "n_targets_drug1": len(left),
@@ -823,7 +860,7 @@ def classify_mechanism(
             for left_direction, right_direction in shared_directions
         ):
             mechanism = "target_overlap_or_redundancy"
-            confidence = min(0.95, 0.55 + 0.35 * jaccard + 0.03 * len(shared))
+            confidence = min(0.90, 0.55 + 0.35 * jaccard)
             description = "The drugs share directionally concordant contextualized targets, supporting an overlap/redundancy interpretation."
         elif any(
             {left_direction, right_direction} == {"inhibitory", "activating"}
@@ -857,11 +894,11 @@ def classify_mechanism(
         )
     elif complementary and cross_distance is not None and cross_distance <= 3.0:
         mechanism = "network_close_distinct_processes"
-        confidence = min(0.70, 0.45 + 0.05 * (3.0 - cross_distance) + 0.02 * len(complementary))
+        confidence = min(0.60, 0.45 + 0.05 * (3.0 - cross_distance))
         description = "The target profiles have distinct pathway annotations and are close in the PPI network; pathway complementarity has not been tested."
     elif complementary:
         mechanism = "distinct_annotated_processes"
-        confidence = min(0.55, 0.35 + 0.02 * len(complementary))
+        confidence = 0.35
         description = "The target profiles have distinct enriched pathway annotations; individual enrichment does not test inter-pathway interaction or synergy."
     elif cross_distance is not None and cross_distance <= 2.0:
         mechanism = "network_proximal_targets"

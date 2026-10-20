@@ -16,7 +16,17 @@ import pandas as pd
 from .advanced import AdvancedResult, explain_advanced
 from .batch_statistics import apply_batch_fdr
 from .context import CancerContext, ContextScore
+from .connectivity import DEFAULT_PATH_SEARCH, validate_path_search
+from .experiments import validate_experiment, ranking_weights, apply_control
+from .reporting import (
+    build_explanation_layers, render_explanation,
+    companion_report_path, write_readable_report,
+)
 from .mechanism import MechanismResult, classify_mechanism, STATISTICAL_CONTRACT_VERSION
+from .pharmacology import (
+    DEFAULT_ROLE_SHA256, ROLE_POLICY_VERSION, PharmacologyRoleCatalog,
+    summarize_roles, role_composition, pathway_role_context, pharmacology_overview,
+)
 from .targets import (
     CACHE_SCHEMA_VERSION,
     PARSER_VERSION,
@@ -26,6 +36,7 @@ from .targets import (
     TargetResolver,
     VERIFIED_QUERY_BINDING_STATUSES,
     standardize_smiles,
+    structure_identity_matches,
 )
 from .research import (
     ALLOWED_RUN_MODES,
@@ -57,6 +68,12 @@ class DrugTargetExplanation:
             "targets": [target.to_dict() for target in self.all_targets],
             "top_targets": [target.to_dict() for target in self.top_targets],
             "resolution": self.resolution,
+            "pharmacology_roles": summarize_roles(self.all_targets),
+            "top_targets_semantics": (
+                "provider_score_order_not_primary_molecular_target_rank"
+                if self.all_targets and self.all_targets[0].ordering_policy == "raw_plato_score_descending"
+                else "context_rank_not_primary_molecular_target_rank"
+            ),
         }
 
 
@@ -86,6 +103,7 @@ class ModuleHit:
     drug2_enrichment_q: Optional[float] = None
     enrichment_supported: bool = False
     shared_enrichment_supported: bool = False
+    pharmacology_role_context: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -149,17 +167,7 @@ class CombinationExplanation:
         return list(dict.fromkeys(flags))
 
     def _summary(self) -> str:
-        left = ", ".join(target.target_id for target in self.drug1_targets.top_targets[:3]) or "none"
-        right = ", ".join(target.target_id for target in self.drug2_targets.top_targets[:3]) or "none"
-        primary_reason = ", ".join(self.credibility.get("limitations", [])[-2:])
-        credibility_score = self.credibility.get("evidence_credibility_score")
-        credibility_text = "invalid" if credibility_score is None else f"{float(credibility_score):.1f}/100"
-        return (
-            f"{self.drug1_name} ({left}) + {self.drug2_name} ({right}): "
-            f"{self.mechanism.mechanism_type}, mechanism_score={self.mechanism.confidence:.3f} "
-            f"(uncalibrated), evidence_credibility_score={credibility_text}. "
-            f"{self.mechanism.description} Main limitations: {primary_reason or 'none reported'}."
-        )
+        return self.to_dict()["integrated_explanation"]["summary"]
 
     @staticmethod
     def _selected_metadata_value(
@@ -403,7 +411,7 @@ class CombinationExplanation:
         serialized_metadata["generated_from_test_fixture"] = generated_from_test_fixture
         audit = deepcopy(serialized_metadata.pop("audit", {}))
         payload = {
-            "result_schema_version": "5.2",
+            "result_schema_version": "5.4",
             "statistical_contract_version": STATISTICAL_CONTRACT_VERSION,
             "network_statistics": cheng,
             "research_contract_version": RESEARCH_CONTRACT_VERSION,
@@ -460,6 +468,8 @@ class CombinationExplanation:
             "network_mechanism_score_semantics": "uncalibrated_evidence_strength",
             "network_calibrated_probability": None,
             "mechanism": self.mechanism.to_dict(),
+            "pharmacology": deepcopy(self.mechanism.metrics.get("pharmacology", {})),
+            "context_target_ranking_semantics": "context_relevance_not_primary_drug_action",
             "functional_mechanism_type": functional_type,
             "functional_mechanism_confidence": float(functional_score) if functional_score is not None else 0.0,
             "functional_mechanism": {
@@ -471,7 +481,12 @@ class CombinationExplanation:
             "dynamic_state_type": dynamic_type,
             "dynamic_state_confidence": dynamic_confidence,
             "dynamic_state_evidence": self.advanced.dynamic_hypotheses,
-            "local_evidence": {"top_paths": self.advanced.local_paths},
+            "local_evidence": {
+                "top_paths": self.advanced.local_paths,
+                "cross_drug_paths": self.advanced.cross_drug_paths,
+                "connectivity": self.advanced.connectivity,
+            },
+            "network_connectivity": self.advanced.connectivity,
             "top_evidence_paths": self.advanced.local_paths,
             "top_evidence_edges": [edge for edge in self.advanced.evidence_graph.get("edges", []) if edge.get("type") == "PPI"],
             "evidence_graphs": {"explanation_evidence_graph": self.advanced.evidence_graph},
@@ -500,18 +515,17 @@ class CombinationExplanation:
                 "calibrated_probability": None,
                 "evidence_credibility_score": serialized_credibility.get("evidence_credibility_score"),
                 "credibility_status": serialized_credibility.get("status", "insufficient"),
-                "summary": self._summary(),
             },
             "warning_flags": self.warning_flags(),
             "audit": audit,
             "metadata": serialized_metadata,
         }
+        payload["explanation_layers"] = build_explanation_layers(payload)
+        payload["integrated_explanation"]["summary"] = render_explanation(payload["explanation_layers"])
         return attach_result_payload_sha256(payload)
 
     def print_summary(self) -> None:
         print(self._summary())
-        if self.warning_flags():
-            print("Warnings:", ", ".join(self.warning_flags()))
 
 
 class SynergyInterpreter:
@@ -538,6 +552,10 @@ class SynergyInterpreter:
                 loaded = yaml.safe_load(text) or {}
         explicit_config = self._merge_config(loaded, dict(config or {}))
         self.config = self._merge_config(self.default_config(package), explicit_config)
+        self.config["path_search"] = validate_path_search(self.config["path_search"])
+        self.config["engineering_experiment"] = validate_experiment(
+            self.config.get("engineering_experiment", {})
+        )
         run_mode = str(self.config.get("run_mode", DEFAULT_RUN_MODE)).strip().lower()
         if run_mode not in ALLOWED_RUN_MODES:
             raise ValueError(
@@ -569,6 +587,8 @@ class SynergyInterpreter:
         self.config["target_mode"] = self._PRODUCT_TARGET_MODE
         self.config["database"] = None
         plato = self.config["plato"]
+        if not isinstance(plato.get("ignore_stereochemistry"), bool):
+            raise TypeError("plato.ignore_stereochemistry must be true or false")
         if not plato.get("enabled", True):
             raise ValueError("PLATO cannot be disabled when target_mode='plato_only'")
         if plato.get("human_only") is not True:
@@ -587,6 +607,7 @@ class SynergyInterpreter:
             provider_release=plato.get("provider_release", "r37"),
             target_mapping=plato.get("target_mapping_path"),
             target_mapping_sha256=str(plato.get("target_mapping_sha256", "")),
+            ignore_stereochemistry=plato["ignore_stereochemistry"],
         )
         self.context = CancerContext()
         self.combination_response_rows: List[Dict[str, Any]] = []
@@ -604,6 +625,13 @@ class SynergyInterpreter:
             "default_cell_line": "default",
             "top_k_targets": 10,
             "advanced": True,
+            "engineering_experiment": {"variant": "full"},
+            "path_search": dict(DEFAULT_PATH_SEARCH),
+            "pharmacology_roles": {
+                "enabled": True,
+                "path": str(package / "data" / "pharmacology_roles_v1.json"),
+                "sha256": DEFAULT_ROLE_SHA256,
+            },
             "context_weights": {
                 "evidence": 0.43,
                 "expression": 0.24,
@@ -636,6 +664,7 @@ class SynergyInterpreter:
             },
             "plato": {
                 "enabled": True,
+                "ignore_stereochemistry": True,
                 "cache_dir": str(package / "data" / "processed" / "plato_cache"),
                 "provider_release": "r37",
                 "human_only": True,
@@ -1255,6 +1284,9 @@ class SynergyInterpreter:
             raise RuntimeError("TargetResolver strict PLATO-only safeguards were weakened")
         if int(self.targets.max_plato_targets) != configured_max:
             raise RuntimeError("Configured and active PLATO target limits differ")
+        if (not isinstance(plato.get("ignore_stereochemistry"), bool)
+                or plato["ignore_stereochemistry"] != self.targets.ignore_stereochemistry):
+            raise RuntimeError("Configured and active stereochemistry policies differ")
 
     @staticmethod
     def _configured_trusted_export_hashes(value: Any) -> set[str]:
@@ -1319,11 +1351,7 @@ class SynergyInterpreter:
             or not str(query.get("inchikey", "")).strip()
         ):
             failures.append("payload_query_structure_not_verified")
-        elif expected_structure is not None and (
-            str(query.get("canonical_isomeric_smiles"))
-            != str(expected_structure.get("canonical_isomeric_smiles"))
-            or str(query.get("inchikey")).upper() != str(expected_structure.get("inchikey")).upper()
-        ):
+        elif expected_structure is not None and not structure_identity_matches(query, expected_structure):
             failures.append("payload_query_structure_identity_mismatch")
         source = cache.get("source", {})
         required_hashes = ("sha256", "payload_sha256", "normalized_targets_sha256", "audit_metadata_sha256")
@@ -1404,6 +1432,7 @@ class SynergyInterpreter:
                 f"Strict PLATO-only requires RDKit-validated canonical SMILES and InChIKey for {drug_name}"
             )
         plato_config = self.config["plato"]
+        structure["ignore_stereochemistry"] = plato_config.get("ignore_stereochemistry", False)
         failures = self._plato_cache_integrity_failures(
             resolution,
             plato_config.get("provider_release", "r37"),
@@ -3319,6 +3348,8 @@ class SynergyInterpreter:
         model_fidelity_evidence: Optional[Mapping[str, Any]] = None,
     ) -> CombinationExplanation:
         self._assert_strict_plato_only_runtime()
+        path_options = validate_path_search(self.config.get("path_search", {}))
+        effective_weights = ranking_weights(self.config)
         synergy_value = self._numeric_score(predicted_synergy)
         if synergy_value is None:
             raise ValueError("predicted_synergy must be finite")
@@ -3357,19 +3388,29 @@ class SynergyInterpreter:
             fused1,
             effective_cell,
             disease_label=disease_label,
-            weights=self.config.get("context_weights"),
+            weights=effective_weights,
             plato_applicability_threshold=self.config.get("plato", {}).get("min_applicability_for_prediction"),
         )
         ranked2 = self.context.rank_targets(
             fused2,
             effective_cell,
             disease_label=disease_label,
-            weights=self.config.get("context_weights"),
+            weights=effective_weights,
             plato_applicability_threshold=self.config.get("plato", {}).get("min_applicability_for_prediction"),
         )
+        ranked1, ranked2, experiment_audit = apply_control(ranked1, ranked2, self.config)
         top_k = int(self.config.get("top_k_targets", 10))
         if top_k <= 0:
             raise ValueError("top_k_targets must be positive")
+        role_config = self.config.get("pharmacology_roles", {})
+        if not isinstance(role_config, Mapping) or not isinstance(role_config.get("enabled", True), bool):
+            raise ValueError("pharmacology_roles requires a mapping with a boolean enabled flag")
+        role_audit = {"enabled": False, "policy_version": ROLE_POLICY_VERSION}
+        if role_config.get("enabled", True):
+            catalog = PharmacologyRoleCatalog(role_config["path"], role_config["sha256"])
+            ranked1 = catalog.annotate(ranked1, drug1_smiles)
+            ranked2 = catalog.annotate(ranked2, drug2_smiles)
+            role_audit = {"enabled": True, **catalog.audit()}
         profile1 = DrugTargetExplanation(drug1_name, drug1_smiles, ranked1, ranked1[:top_k], resolution1)
         profile2 = DrugTargetExplanation(drug2_name, drug2_smiles, ranked2, ranked2[:top_k], resolution2)
         network = self.config.get("network", {})
@@ -3383,7 +3424,23 @@ class SynergyInterpreter:
             random_seed=int(network.get("random_seed", 42)),
             min_network_coverage=float(network.get("min_mapping_coverage", 0.5)),
         )
+        pharmacology = pharmacology_overview(ranked1, ranked2, (drug1_name, drug2_name))
+        pharmacology["pathway_role_context"] = pathway_role_context(
+            mechanism.metrics.get("pathway_enrichment", {}), ranked1, ranked2
+        )
+        pharmacology["candidate_context_description"] = mechanism.description
+        mechanism.metrics["pharmacology"] = pharmacology
+        if pharmacology["status"] == "partial_literature_coverage":
+            mechanism.description = (
+                pharmacology["narrative"] + " Candidate-context hypothesis: "
+                + pharmacology["candidate_context_description"]
+            )
         modules = self._rank_modules(profile1.all_targets, profile2.all_targets, disease_label)
+        for module in modules.top_modules + modules.top_disease_modules:
+            module.pharmacology_role_context = {
+                "drug1": role_composition(module.matched_genes_drug1, ranked1),
+                "drug2": role_composition(module.matched_genes_drug2, ranked2),
+            }
         enable_advanced = self.config.get("advanced", True) if advanced is None else advanced
         advanced_result = explain_advanced(
             drug1_name,
@@ -3397,7 +3454,10 @@ class SynergyInterpreter:
             sensitivity_randomizations=int(network.get("sensitivity_randomizations", 1000)),
             random_seed=int(network.get("random_seed", 42)),
             min_network_coverage=float(network.get("min_mapping_coverage", 0.5)),
-        ) if enable_advanced else AdvancedResult()
+            path_max_length=path_options["max_length"],
+            path_max_paths=path_options["max_paths"],
+            max_cross_drug_paths=path_options["max_cross_drug_paths"],
+        ) if enable_advanced else AdvancedResult(connectivity={"status": "disabled"})
         model_fidelity = self._evaluate_model_fidelity(
             drug1_name,
             drug2_name,
@@ -3482,6 +3542,9 @@ class SynergyInterpreter:
             ),
             plato_parser_version=PARSER_VERSION,
         )
+        audit["pharmacology_roles"] = role_audit
+        audit["engineering_experiment"] = experiment_audit
+        audit["policies"]["pharmacology_roles"] = ROLE_POLICY_VERSION
         return CombinationExplanation(
             drug1_name=drug1_name,
             drug2_name=drug2_name,
@@ -3539,15 +3602,21 @@ class SynergyInterpreter:
 
     @staticmethod
     def save_result(result: CombinationExplanation, path: str | Path) -> Dict[str, Any]:
-        """Write one result with an exact-byte SHA-256 sidecar."""
-        return write_json_with_sha256(path, result.to_dict())
+        """Write the audited JSON and a finding-first Chinese report."""
+        payload = result.to_dict()
+        record = write_json_with_sha256(path, payload)
+        record.update(write_readable_report(companion_report_path(path), payload))
+        return record
 
     @staticmethod
     def save_results(
         results: Sequence[CombinationExplanation], path: str | Path
     ) -> Dict[str, Any]:
-        """Write a result collection with an exact-byte SHA-256 sidecar."""
-        return write_json_with_sha256(path, [result.to_dict() for result in results])
+        """Write a collection and report after any batch correction."""
+        payload = [result.to_dict() for result in results]
+        record = write_json_with_sha256(path, payload)
+        record.update(write_readable_report(companion_report_path(path), payload))
+        return record
 
 
 ExplanationPipeline = SynergyInterpreter

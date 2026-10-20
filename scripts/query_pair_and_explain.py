@@ -16,6 +16,7 @@ PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE.parent))
 
 from InterpreterPLATO import ExplanationPipeline
+from InterpreterPLATO.scripts.run_interpreter import add_path_arguments, path_options_from_args
 
 try:  # Running as a script keeps this directory on sys.path.
     from .query_plato_once import (
@@ -214,11 +215,13 @@ def main() -> int:
         ),
     )
     parser.add_argument("--output", help="Explanation JSON output path")
+    add_path_arguments(parser)
     args = parser.parse_args()
 
     if args.delay_seconds < 0 or args.delay_seconds > 60:
         parser.error("--delay-seconds must be between 0 and 60")
     try:
+        path_options = path_options_from_args(args)
         trusted_export_sha256 = _normalize_trusted_hashes(args.trusted_plato_sha256)
     except ValueError as exc:
         parser.error(str(exc))
@@ -342,6 +345,7 @@ def main() -> int:
         },
         "plato_results": [first, second],
         "context_config": args.context_config,
+        "path_search": path_options,
         "demo": bool(args.demo),
         "explanation_output": output_path,
         "run_mode": "demo" if args.demo else "research_hypothesis",
@@ -374,6 +378,7 @@ def main() -> int:
         return 2
 
     pipeline_config: Dict[str, Any] = {
+        "path_search": path_options,
         "run_mode": "research_hypothesis",
         "generated_from_test_fixture": False,
         "target_mode": "plato_only",

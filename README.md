@@ -1,6 +1,58 @@
-# InterpreterPLATO 5.2
+# InterpreterPLATO 5.5.2
+
+本项目是独立仓库，与 [ScoreRI](https://github.com/skeujann/ScoreRI) 分开维护。所有命令均从本仓库根目录执行；输入药物对和预测分数由调用方提供，运行时不需要相邻的 ScoreRI 源码。
+
+## 安装与测试
+
+```bash
+python -m pip install -r requirements-dev.lock
+python -m pip install --no-deps .
+interpreter-plato --help
+python -m pytest tests
+```
+
+仓库保留源码、测试、轻量配置和数据哈希清单。原始数据、处理后上下文、PLATO 缓存、六例开发选择及来源记录、输出和虚拟环境需在本地单独准备；详见 [数据准备](docs/DATA_BOOTSTRAP.md) 和 [本地开发案例说明](research/README.md)。
 
 InterpreterPLATO 是一个药物组合生物学解释器。它的作用不是重新训练一个靶点预测模型，而是把一对药物组合的靶点证据、癌症细胞系上下文、PPI 网络、通路和疾病基因集合整合起来，生成可审计的机制解释。
+
+## 默认忽略立体信息（5.5.2）
+
+解释器默认使用 `plato.ignore_stereochemistry=true`：去除原子手性和双键立体标记，
+按相同分子连接关系匹配 PLATO 缓存。同位素、电荷、键级及盐组分保持区分。
+缓存仍保存真实查询的完整结构；同组存在多份预测时，只有靶点解析结果一致才复用，
+结果冲突会明确列出，不把不同靶点集合拼成一份预测。药理文献注释仍保留原文所对应的准确结构。
+工程入口可用 `--respect-stereochemistry` 恢复精确构型匹配；其余入口可在配置中将上述开关设为 false。
+说明与验证边界见 [结构匹配说明](docs/STRUCTURE_MATCHING.md)。
+
+## 六例开发案例运行（5.5.1）
+
+`scripts/run_engineering.py` 默认恢复原测试方式：**不要求人工验收、来源签字或生产 schema 批准**。
+无需 `prepare` 或 `--reviews` 即可执行；原始文件哈希、查询结构绑定及可靠靶点筛选继续生效。
+保留逐例输入诊断、冻结计划、顺序运行、
+失败/拒绝保留、哈希验证续跑及完整分母汇总。既有六个 ScoreRI 候选保持开发案例身份。
+显式控制含表达排序权重关闭、PLATO 分数排序、真实靶点删除、随机种子与 top-k；
+不同控制的严格范围及可执行命令见 [工程验证方案](docs/ENGINEERING_VALIDATION.md)。
+默认完整解释算法不变，测试方式沿用 2000 次随机化；结果标记 `run_mode=test`，不伪造来源批准。
+只有显式选择 `--input-policy strict` 时才启用人工来源门禁。主解释器的严格模式保持原行为。
+
+## 发现优先的中文输出（5.4.2）
+
+终端与 `integrated_explanation.summary` 先列出候选靶点、双药 PPI 路径、共享靶点、
+靶点—疾病路径及通路注释，再单独呈现各药的疾病邻近检验。共享靶点零跳与非零跳 PPI
+路径分别计数；显示数量与搜索候选数量分别记录。未生成解释时直接给出具体原因。
+`explanation_layers` 提供对应的结构化展示字段，原有推断、统计、审计字段继续保留。
+
+`save_result` / `save_results` 在 JSON 旁自动写出 `原文件名.report.md` 及其 `.sha256`。
+单对和批量 CLI 使用相同的中文输出，批次结果显示校正后的 q 值；不可评估假设的占位 q
+不显示为有效显著性结果。此版本不修改分类规则、评分、随机抽样或 90% 接受率门槛。
+
+已有 JSON 可直接生成新报告，无需重新请求 PLATO 或运行模型：
+
+```powershell
+python scripts/render_explanation.py --input explanation.json --output explanation_report.md
+```
+
+详见 [输出字段与语义](docs/OUTPUT_PRESENTATION.md)。
 
 ## 论文研究定位（当前唯一输出语义）
 
@@ -24,9 +76,11 @@ PLATO 靶点和癌症上下文的 **post-hoc 生物学机制假说**，不是模
 “分析结果最多能声称什么”。详细边界和论文报告要求见
 [论文机制假说模块范围](docs/THESIS_INTERPRETATION_SCOPE.md)。
 
-当前统计合同为 `statistical_contract_version=1.0`。网络分析采用明确版本化的自定义
-`weighted_fixed_disease_closest_v2`，不是 Cheng 等人的严格方法复现，也未完成外部校准。
-完整合格 PLATO 靶点集用于网络统计和通路富集；上下文 top-k 仅用于展示和探索性规则选择。
+当前统计合同为 `statistical_contract_version=1.1`。网络分析采用明确版本化的自定义
+`weighted_fixed_disease_closest_v3_mapped_universe`，不是 Cheng 等人的严格方法复现，也未完成外部校准。
+完整合格 PLATO 靶点集分别与冻结网络/通路背景取交集用于统计；上下文 top-k 仅用于展示和探索性规则选择。
+网络输出列出未映射基因、实际分析集合和原始覆盖率；覆盖率不足或已映射成员不可达时仍不建立支持。
+机制分数不再因共享通路条数或描述性通路配对数量增加而加分，分数仍是未校准的规则值。
 精确定义、零模型、支持判据和批量检验边界见[统计方法与推断边界](docs/STATISTICAL_METHODS.md)。
 后续独立评测遵循[拟议验证协议](docs/VALIDATION_PROTOCOL.md)，其状态是
 `proposed_not_executed`，不能将软件回归测试当作真实机制验证。
@@ -40,6 +94,27 @@ PLATO 靶点和癌症上下文的 **post-hoc 生物学机制假说**，不是模
 - 程序不做批量访问、不爬取 PLATO 网页；如需程序查询，只允许用户触发的单次 PLATO 表单请求，并保存完整审计证据。
 
 也就是说，这里的 `PLATO-only` 指“正式药物靶点来源只认 PLATO”，不是指本程序拥有独立靶点预测模型、公开 API 授权或批量查询能力；PLATO 仍然是外部平台。
+
+## 药物特异的文献角色（5.4）
+
+文献角色层只注释已进入分析的 PLATO 候选，不增加候选或改变上下文排序、网络/富集统计。
+摘要优先呈现有文献依据的药效靶点，并将代谢、转运、胞内保留及角色未知的候选分开报告。
+角色按完整 InChIKey 和基因匹配，不能根据基因名称前缀、蛋白类型或 PPI 连接推断。
+首批资源含两种药物、七条关系；TUBB3 只保留微管家族级证据，不宣称已验证该亚型结合。
+未匹配关系保持未知。文献依据、适用范围、配置和扩展格式见
+[文献角色方法](docs/PHARMACOLOGY_ROLES.md)。
+
+## 路径连通与模块衔接（5.4.1）
+
+在限定跳数内搜索最小加权代价路径，保留满足长度限制的替代路线；从完整合格靶点集搜索，
+展示条数单独控制。补充双药靶点之间的 PPI 路径，并在路径节点齐全后连接选定疾病模块。
+`local_evidence.connectivity` / `network_connectivity` 报告未映射、真正断连、长度受限及仅因展示
+预算而未显示的靶点。直接命中疾病基因的零跳路径单独标记，不能解释成观测到 PPI 边。
+
+API 的 `path_search` 配置与命令行 `--path-max-length`、`--max-evidence-paths`、
+`--max-cross-drug-paths` 同步，默认分别为 5、10、5。JSON schema 保持兼容的 5.4，新增字段
+采用 `hop_bounded_weighted_paths_v1` 方法标识。连通报告不增加靶点、不补造网络边，
+也不为机制统计加分。具体字段、限制与示例见[连通性说明](docs/CONNECTIVITY.md)。
 
 ## 当前生产状态
 
@@ -62,9 +137,9 @@ PLATO 靶点和癌症上下文的 **post-hoc 生物学机制假说**，不是模
 candidate，可用于回归检查 `chemblId / nome / score / validato / simili` parser contract。
 它的 manifest 仍标记为 `raw_json_and_pdf_fixture_candidate` 和
 `not_yet_allowlisted_for_scoring`；production schema allowlist 当前为空，因此该 candidate
-会得到 `schema_fixture_verified=false`，不能绑定 PLATO/r37 来源或打开正式计分。本代码发布
-不包含 fixture manifest、target-fishing JSON、PDF、普通查询响应或其他受限原件。
-需要真实 fixture 回归时，由获授权的数据保管者单独提供受控数据包并恢复到：
+会得到 `schema_fixture_verified=false`，不能绑定 PLATO/r37 来源或打开正式计分。仓库当前把
+fixture manifest 和 target-fishing JSON 作为唯一的小型受控数据例外显式跟踪；PDF、普通
+查询响应和其他受限原件不随代码提交。fixture 位于：
 
 ```text
 InterpreterPLATO/data/raw/plato/r37/golden_fixture/
@@ -79,13 +154,13 @@ PLATO 原始导出 SHA-256 独立 allowlist、可靠人源蛋白靶点等门禁�
 
 当前实现生成的结果（包括未来通过输入门禁的研究假说）会声明：
 
-- `result_schema_version=5.2`
-- `statistical_contract_version=1.0`
+- `result_schema_version=5.4`
+- `statistical_contract_version=1.1`
 - `credibility.formula_version=evidence_credibility_v5_frozen_statistical_targets`
-- `network_statistics.method_version=weighted_fixed_disease_closest_v2`
+- `network_statistics.method_version=weighted_fixed_disease_closest_v3_mapped_universe`
 
-旧 schema 3/4/5.0/5.1 以及旧公式 v1/v2/v3/v4 的结果只保留历史审计意义，必须从原始输入
-按当前协议重新运行，不能通过改版本号升级，也不能与 5.2 分数直接比较。
+旧 schema 3/4/5.0/5.1/5.2 以及旧公式 v1/v2/v3/v4 的结果只保留历史审计意义，必须从原始输入
+按当前协议重新运行，不能通过改版本号升级，也不能与当前版本分数直接比较。
 `evidence_credibility_score` 是未校准的证据评价规则分，不是靶点预测正确概率、临床疗效
 概率或实验成功率；输入可审计、规则支持、敏感性和独立验证应分开报告。
 
@@ -94,7 +169,7 @@ PLATO 原始导出 SHA-256 独立 allowlist、可靠人源蛋白靶点等门禁�
 解释器的主任务是一对药物组合。低频调试时可以直接用 pair-level 脚本：
 
 ```powershell
-python InterpreterPLATO/scripts/query_pair_and_explain.py `
+python scripts/query_pair_and_explain.py `
   --drug1 "Drug-A" `
   --drug2 "Drug-B" `
   --smiles-lookup C:\datasets\drug_smiles.csv `
@@ -106,7 +181,7 @@ python InterpreterPLATO/scripts/query_pair_and_explain.py `
 如果不传 `--drug1-smiles / --drug2-smiles`，必须用 `--smiles-lookup PATH` 显式指定查询表；InterpreterPLATO 不分发 SMILES 表，也不会扫描工作区相邻项目。也可以直接传入两个 SMILES。解析测试可以先跑：
 
 ```powershell
-python InterpreterPLATO/scripts/query_pair_and_explain.py `
+python scripts/query_pair_and_explain.py `
   --drug1 "Gemcitabine" `
   --drug2 "Paclitaxel" `
   --smiles-lookup C:\datasets\drug_smiles.csv `
@@ -148,7 +223,7 @@ cache 和 `run_interpreter.py` 生成研究假说及未校准规则分，不能�
 如果你希望程序替你完成网页表单的“单次查询”，使用：
 
 ```powershell
-python InterpreterPLATO/scripts/query_plato_once.py `
+python scripts/query_plato_once.py `
   --drug-name "Compound-A" `
   --smiles "提交给 PLATO 的精确 SMILES" `
   --release r37 `
@@ -170,7 +245,7 @@ python InterpreterPLATO/scripts/query_plato_once.py `
 先在 PLATO 网页对单个分子完成查询，并下载结果文件。然后用本地导入脚本归档：
 
 ```powershell
-python InterpreterPLATO/scripts/import_plato_result.py `
+python scripts/import_plato_result.py `
   --drug-name "Compound-A" `
   --smiles "提交给 PLATO 的精确 SMILES" `
   --result "C:/path/plato-result.json" `
@@ -191,16 +266,16 @@ fingerprint 已进入 production allowlist 的 fixture（当前不存在）、�
 cache 都准备好之后，才可以运行：
 
 ```powershell
-python InterpreterPLATO/scripts/run_interpreter.py summary `
-  --context-config InterpreterPLATO/data/production_context.json `
-  --plato-cache InterpreterPLATO/data/processed/plato_cache `
+python scripts/run_interpreter.py summary `
+  --context-config data/production_context.json `
+  --plato-cache data/processed/plato_cache `
   --plato-release r37 `
   --trusted-plato-sha256 "<drug-a-raw-export-sha256>" `
   --trusted-plato-sha256 "<drug-b-raw-export-sha256>" `
   --drug1 "Drug-A" --drug2 "Drug-B" `
   --drug1-smiles "SMILES-A" --drug2-smiles "SMILES-B" `
   --cell-line A549 --disease-label pan_cancer_tier1 `
-  --output InterpreterPLATO/outputs/research/drug-a__drug-b.json
+  --output outputs/research/drug-a__drug-b.json
 ```
 
 CLI 会在正式运行前预检输入和缓存状态。以下情况会直接失败，并且不会写出正式分数：
@@ -277,7 +352,7 @@ PLATO target_chembl_id → ChEMBL r37 target/component → HGNC 2026-04-01 symbo
 也就是把 PLATO 已经给出的 `CHEMBL target id` 翻译成 PPI、DepMap、Reactome、COSMIC 能识别的人类基因符号。构建命令：
 
 ```powershell
-python InterpreterPLATO/scripts/build_chembl_target_mapping.py
+python scripts/build_chembl_target_mapping.py
 ```
 
 输入原始文件位置：
@@ -334,10 +409,10 @@ InterpreterPLATO/outputs/archive/pre_research_contract_20260718/
 常用检查命令：
 
 ```powershell
-python InterpreterPLATO/scripts/build_context_artifacts.py all
-python InterpreterPLATO/scripts/verify_manifest.py --scope runtime
-python InterpreterPLATO/scripts/verify_manifest.py --scope source
-python -m pytest InterpreterPLATO/tests
+python scripts/build_context_artifacts.py all
+python scripts/verify_manifest.py --scope runtime
+python scripts/verify_manifest.py --scope source
+python -m pytest tests
 ```
 
 ## 当前最重要的限制

@@ -9,9 +9,8 @@ from hashlib import sha256
 import json
 import math
 
-import networkx as nx
-
 from .context import CancerContext, ContextScore, edge_distance, gene
+from .connectivity import cross_drug_paths, disease_paths
 from .mechanism import (
     MIN_ADEQUATE_RANDOMIZATIONS,
     MechanismResult,
@@ -42,7 +41,11 @@ class AdvancedResult:
         "local_paths": "weighted network evidence paths, not causal chains",
         "evidence_graph": "provenance organization, not independent validation",
         "counterfactuals": "interpreter sensitivity analyses, not biological causal effects",
+        "cross_drug_paths": "PPI reachability between candidate target sets, not synergy evidence",
+        "connectivity": "mapping, reachability and display diagnostics",
     })
+    cross_drug_paths: List[Dict[str, Any]] = field(default_factory=list)
+    connectivity: Dict[str, Any] = field(default_factory=lambda: {"status": "not_evaluated"})
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -169,103 +172,15 @@ def local_evidence_paths(
     top_k: int = 10,
     max_length: int = 5,
     disease_label: str = "",
+    diagnostics: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
-    graph = context.ppi
-    if graph.number_of_nodes() == 0:
-        return []
-    disease = context.disease_genes(disease_label)
-    destinations = [item for item in disease if item in graph]
-    if not destinations:
-        return []
-    max_degree = max((degree for _, degree in graph.degree()), default=1)
-    candidates: List[Dict[str, Any]] = []
-    try:
-        _, nearest_disease_paths = nx.multi_source_dijkstra(
-            graph, destinations, weight=edge_distance
-        )
-    except (nx.NetworkXError, nx.NodeNotFound):
-        return []
-    for drug_name, profile in ((drug1_name, drug1_targets), (drug2_name, drug2_targets)):
-        for target in profile[:top_k]:
-            source = gene(target.target_id)
-            disease_to_source = nearest_disease_paths.get(source)
-            if disease_to_source is None:
-                continue
-            path = list(reversed(disease_to_source))
-            destination = path[-1]
-            if len(path) - 1 > max_length:
-                continue
-            edge_pairs = list(zip(path, path[1:]))
-            edge_data = [graph.get_edge_data(left, right, default={}) for left, right in edge_pairs]
-            edge_costs = [edge_distance(left, right, item) for (left, right), item in zip(edge_pairs, edge_data)]
-            edge_confidences = [
-                item.get("confidence") if item.get("confidence_available") is True else None
-                for item in edge_data
-            ]
-            edge_support_factors = [
-                min(1.0, max(0.0, float(value))) if value is not None and math.isfinite(float(value)) else 0.5
-                for value in edge_confidences
-            ]
-            weighted_cost = sum(edge_costs)
-            confidence_geomean = (
-                math.exp(sum(math.log(max(value, 1e-6)) for value in edge_support_factors) / len(edge_support_factors))
-                if edge_support_factors else 1.0
-            )
-            hub_values = [
-                math.log1p(graph.degree(node)) / math.log1p(max_degree)
-                for node in path[1:-1]
-            ] if max_degree > 0 else []
-            hub_penalty = float(sum(hub_values) / len(hub_values)) if hub_values else 0.0
-            hop_factor = 1.0 / (1.0 + len(path) - 1)
-            score = target.final_score * confidence_geomean * hop_factor * math.exp(-0.25 * hub_penalty)
-            candidates.append({
-                "drug": drug_name,
-                "source_target": source,
-                "destination": destination,
-                "path": path,
-                "length": len(path) - 1,
-                "bridge_genes": path[1:-1],
-                "score": float(score),
-                "weighted_cost": float(weighted_cost),
-                "edge_confidences": edge_confidences,
-                "edge_support_factors": edge_support_factors,
-                "edge_confidence_geomean": float(confidence_geomean),
-                "edge_confidence_coverage": sum(value is not None for value in edge_confidences) / max(1, len(edge_confidences)),
-                "hub_penalty": hub_penalty,
-                "score_components": {
-                    "target_score": target.final_score,
-                    "edge_confidence_geomean": float(confidence_geomean),
-                    "hop_factor": hop_factor,
-                    "hub_factor": math.exp(-0.25 * hub_penalty),
-                },
-                "weighting_method": "nearest_disease_confidence_path_with_hub_penalty",
-                "weight_semantics": "confidence_weighted_when_available; topology-only edges use a conservative support factor",
-                "source_evidence_status": target.evidence_status,
-            })
-    candidates.sort(key=lambda item: item["score"], reverse=True)
-    unique: List[Dict[str, Any]] = []
-    seen = set()
-    for item in candidates:
-        key = (item["drug"], tuple(item["path"]))
-        if key not in seen:
-            seen.add(key)
-            unique.append(item)
-    if top_k <= 1:
-        return unique[:max(0, top_k)]
-    selected: List[Dict[str, Any]] = []
-    # With room for both drugs, reserve one best path per drug and then fill
-    # the remaining slots globally by score.  A one-slot result is purely the
-    # highest scoring path and is not biased toward drug1.
-    for drug_name in (drug1_name, drug2_name):
-        first = next((item for item in unique if item["drug"] == drug_name), None)
-        if first is not None and first not in selected:
-            selected.append(first)
-    for item in unique:
-        if item not in selected:
-            selected.append(item)
-        if len(selected) >= top_k:
-            break
-    return selected[:top_k]
+    selected, report = disease_paths(
+        (drug1_name, drug2_name), (drug1_targets, drug2_targets), context,
+        max_paths=max(0, top_k), max_length=max_length, disease_label=disease_label,
+    )
+    if diagnostics is not None:
+        diagnostics.update(report)
+    return selected
 
 
 def build_evidence_graph(
@@ -276,6 +191,8 @@ def build_evidence_graph(
     context: CancerContext,
     paths: Sequence[Mapping[str, Any]],
     dynamics: Sequence[Mapping[str, Any]],
+    *,
+    disease_label: str = "",
 ) -> Dict[str, Any]:
     nodes: Dict[str, Dict[str, Any]] = {}
     edges: List[Dict[str, Any]] = []
@@ -299,6 +216,7 @@ def build_evidence_graph(
                 "confidence": target.evidence_score,
                 "context_score": target.final_score,
                 "provenance": target.source_evidence,
+                "pharmacology_annotation": target.pharmacology,
             })
             if target.source_evidence.get("plato"):
                 plato_details = target.source_evidence.get("plato")
@@ -338,19 +256,18 @@ def build_evidence_graph(
             add_node(f"gene:{member}", "gene", name=member)
             edges.append({"source": f"gene:{member}", "target": pathway_id, "type": "belongs_to_pathway"})
 
-    for disease_name, members in context.disease_sets.items():
-        disease_id = f"disease_module:{disease_name}"
-        add_node(disease_id, "disease_module", name=disease_name)
-        for member in sorted(members):
-            if f"gene:{member}" in nodes:
-                edges.append({"source": f"gene:{member}", "target": disease_id, "type": "belongs_to_disease_module"})
-
+    ppi_edges: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for item in paths:
         sequence = list(item.get("path", []))
+        for node in sequence:
+            if node not in context.ppi:
+                raise ValueError(f"Evidence path node is not in the loaded PPI: {node}")
+            add_node(f"gene:{node}", "gene", name=node)
         for left, right in zip(sequence, sequence[1:]):
-            add_node(f"gene:{left}", "gene", name=left)
-            add_node(f"gene:{right}", "gene", name=right)
-            attributes = context.ppi.get_edge_data(left, right, default={})
+            if not context.ppi.has_edge(left, right):
+                raise ValueError(f"Evidence path edge is not in the loaded PPI: {left} -- {right}")
+            left, right = sorted((left, right))
+            attributes = context.ppi[left][right]
             distance = edge_distance(left, right, attributes)
             edge = {
                 "source": f"gene:{left}",
@@ -362,9 +279,27 @@ def build_evidence_graph(
                 "weight_semantics": "confidence" if attributes.get("confidence_available") is True else "topology_or_explicit_distance_only",
                 "distance": distance if math.isfinite(distance) else None,
                 "source_dataset": context.resource_metadata.get("ppi", {}).get("source", ""),
+                "directed": False,
+                "path_kinds": [item.get("path_kind", "target_to_disease")],
             }
-            if edge not in edges:
-                edges.append(edge)
+            key = (left, right)
+            if key in ppi_edges:
+                existing = ppi_edges[key]
+                existing["path_score"] = max(existing["path_score"], edge["path_score"])
+                existing["path_kinds"] = sorted(set(existing["path_kinds"] + edge["path_kinds"]))
+            else:
+                ppi_edges[key] = edge
+    edges.extend(ppi_edges[key] for key in sorted(ppi_edges))
+
+    # Attach disease membership after all path endpoints and bridge nodes exist.
+    # Only the selected disease context participates in this explanation.
+    disease_members = context.disease_genes(disease_label)
+    displayed_members = sorted(member for member in disease_members if f"gene:{member}" in nodes)
+    if displayed_members:
+        disease_id = f"disease_module:{disease_label or 'selected_context'}"
+        add_node(disease_id, "disease_module", name=disease_label or "selected_context")
+        for member in displayed_members:
+            edges.append({"source": f"gene:{member}", "target": disease_id, "type": "belongs_to_disease_module"})
 
     for index, item in enumerate(dynamics):
         state_id = f"state:{item.get('state_type', index)}"
@@ -598,16 +533,30 @@ def explain_advanced(
     sensitivity_randomizations: int = 1000,
     random_seed: int = 42,
     min_network_coverage: float = 0.5,
+    path_max_length: int = 5,
+    path_max_paths: Optional[int] = None,
+    max_cross_drug_paths: int = 5,
 ) -> AdvancedResult:
     dynamics = dynamic_hypotheses(
         drug1_name, drug2_name, drug1_targets, drug2_targets, top_k=top_k
     )
+    connectivity: Dict[str, Any] = {}
     paths = local_evidence_paths(
         drug1_name, drug2_name, drug1_targets, drug2_targets, context,
-        top_k=top_k,
+        top_k=top_k if path_max_paths is None else path_max_paths,
+        max_length=path_max_length,
         disease_label=disease_label,
+        diagnostics=connectivity,
     )
-    graph = build_evidence_graph(drug1_name, drug2_name, drug1_targets, drug2_targets, context, paths, dynamics)
+    cross_paths, cross_report = cross_drug_paths(
+        (drug1_name, drug2_name), (drug1_targets, drug2_targets), context,
+        max_paths=max_cross_drug_paths, max_length=path_max_length,
+    )
+    connectivity["cross_drug"] = cross_report
+    graph = build_evidence_graph(
+        drug1_name, drug2_name, drug1_targets, drug2_targets, context,
+        paths + cross_paths, dynamics, disease_label=disease_label,
+    )
     counterfactuals = counterfactual_analysis(
         drug1_targets,
         drug2_targets,
@@ -664,4 +613,12 @@ def explain_advanced(
             "confidence_delta": item.get("confidence_delta", 0.0),
         })
     graph["nodes"].append({"id": "mechanism:baseline", "type": "mechanism", "name": mechanism.mechanism_type})
-    return AdvancedResult(dynamics, paths, graph, counterfactuals)
+    for drug_name in dict.fromkeys((drug1_name, drug2_name)):
+        graph["edges"].append({
+            "source": "mechanism:baseline", "target": f"drug:{drug_name}",
+            "type": "summarizes_combination_member", "evidence_type": "report_structure_only",
+        })
+    return AdvancedResult(
+        dynamics, paths, graph, counterfactuals,
+        cross_drug_paths=cross_paths, connectivity=connectivity,
+    )

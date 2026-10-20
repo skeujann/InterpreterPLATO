@@ -12,7 +12,7 @@
 ## Pair-Level Query Then Explain
 
 ```powershell
-python InterpreterPLATO/scripts/query_pair_and_explain.py `
+python scripts/query_pair_and_explain.py `
   --drug1 "Drug-A" `
   --drug2 "Drug-B" `
   --smiles-lookup C:\datasets\drug_smiles.csv `
@@ -27,7 +27,7 @@ InterpreterPLATO never scans ambient sibling projects. Alternatively, provide
 both SMILES explicitly. Test resolution without contacting PLATO:
 
 ```powershell
-python InterpreterPLATO/scripts/query_pair_and_explain.py `
+python scripts/query_pair_and_explain.py `
   --drug1 "Gemcitabine" `
   --drug2 "Paclitaxel" `
   --smiles-lookup C:\datasets\drug_smiles.csv `
@@ -53,7 +53,7 @@ After placing the ChEMBL r37 SQLite archive and companion files under
 layer:
 
 ```powershell
-python InterpreterPLATO/scripts/build_chembl_target_mapping.py
+python scripts/build_chembl_target_mapping.py
 ```
 
 The output maps PLATO `target_chembl_id` values to HGNC symbols for
@@ -63,7 +63,7 @@ and does not use ChEMBL drug-target associations.
 ## Single PLATO Query
 
 ```powershell
-python InterpreterPLATO/scripts/query_plato_once.py `
+python scripts/query_plato_once.py `
   --drug-name "Drug-A" `
   --smiles "exact SMILES submitted to PLATO" `
   --release r37 `
@@ -80,7 +80,7 @@ identity evidence so the cache can use
 ## Manual Archive Is Not Verification
 
 ```powershell
-python InterpreterPLATO/scripts/import_plato_result.py `
+python scripts/import_plato_result.py `
   --drug-name "Drug-A" `
   --smiles "exact SMILES submitted to PLATO" `
   --result "C:/path/drug-a-plato.json" `
@@ -115,8 +115,8 @@ After a reviewed fixture is production-approved, every formal run must also
 provide independent raw PLATO export SHA-256 allowlist entries:
 
 ```powershell
-python InterpreterPLATO/scripts/run_interpreter.py summary `
-  --context-config InterpreterPLATO/data/production_context.json `
+python scripts/run_interpreter.py summary `
+  --context-config data/production_context.json `
   --drug1 "Drug-A" `
   --drug2 "Drug-B" `
   --drug1-smiles "CCO" `
@@ -138,10 +138,10 @@ and must not be compared directly with v5.1 scores.
 ## Checks
 
 ```powershell
-python InterpreterPLATO/scripts/run_interpreter.py summary --help
-python InterpreterPLATO/scripts/run_interpreter.py batch --help
-python InterpreterPLATO/scripts/query_pair_and_explain.py --help
-python InterpreterPLATO/scripts/query_plato_once.py --help
-python InterpreterPLATO/scripts/import_plato_result.py --help
-python -m pytest InterpreterPLATO/tests
+python scripts/run_interpreter.py summary --help
+python scripts/run_interpreter.py batch --help
+python scripts/query_pair_and_explain.py --help
+python scripts/query_plato_once.py --help
+python scripts/import_plato_result.py --help
+python -m pytest tests
 ```

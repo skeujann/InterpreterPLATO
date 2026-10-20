@@ -84,12 +84,12 @@ def test_disconnected_cycles_cannot_turn_truncated_samples_into_adequate_null() 
 
 
 @pytest.mark.parametrize("left,right,disease", [
-    ({"G0", "ABSENT"}, {"G2"}, {"G0"}),
-    ({"G0"}, {"G2", "ABSENT"}, {"G0"}),
-    ({"G0"}, {"G2"}, {"G0", "ABSENT"}),
+    ({"G0", "ABSENT", "ABSENT2"}, {"G2"}, {"G0"}),
+    ({"G0"}, {"G2", "ABSENT", "ABSENT2"}, {"G0"}),
+    ({"G0"}, {"G2"}, {"G0", "ABSENT", "ABSENT2"}),
     ({"G0", "ISOLATED"}, {"G2"}, {"G0"}),
 ])
-def test_incomplete_observed_mapping_or_reachability_fails_closed(left, right, disease) -> None:
+def test_insufficient_mapping_or_incomplete_reachability_fails_closed(left, right, disease) -> None:
     graph = _cycle()
     graph.add_node("ISOLATED")
     result = _cheng_metrics(graph, left, right, disease, samples=1000)
@@ -177,10 +177,10 @@ def test_pipeline_preserves_full_statistical_targets_and_versions(tmp_path: Path
     payload = result.to_dict()
     assert len(payload["top_targets_drug1"]) == 1
     assert payload["network_statistics"]["statistical_target_sets"] == {"drug1": sorted(left), "drug2": sorted(right)}
-    assert payload["result_schema_version"] == "5.2"
-    assert payload["statistical_contract_version"] == "1.0"
+    assert payload["result_schema_version"] == "5.4"
+    assert payload["statistical_contract_version"] == "1.1"
     assert payload["audit"]["policies"]["network_statistics"] == NETWORK_METHOD_VERSION
-    assert payload["audit"]["policies"]["statistical_contract"] == "1.0"
+    assert payload["audit"]["policies"]["statistical_contract"] == "1.1"
     assert payload["credibility"]["components"]["robustness"]["points"] == 0.0
     assert "mechanism_sensitive_to_top_k" not in payload["credibility"]["warnings"]
     assert payload["generated_from_test_fixture"] is True

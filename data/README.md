@@ -42,16 +42,16 @@ Default location: `data/processed/plato_cache/`.
 Current cache schema is `3`. It preserves immutable raw response bytes and
 their SHA-256, plus normalized payload, normalized targets, query binding,
 parser report, and audit metadata. Old cache schema v1/v2 entries are
-archive-only and cannot be used for current research-hypothesis analysis.
+archive-only and cannot be used for formal v5.1 output.
 
 Archived files come from manual or explicitly user-triggered single-molecule
 PLATO web queries. The interpreter itself does not fetch targets; the dedicated
 helper permits one audited HTTPS form submission at a time. User attestation is
 not provider authentication or schema verification.
 
-The code-only repository excludes the current Gemcitabine PLATO r37 fixture
-candidate manifest and target-fishing JSON. Authorized deployments restore them
-from a separately controlled data bundle to `data/raw/plato/r37/golden_fixture/`.
+The repository explicitly tracks the current Gemcitabine PLATO r37 fixture
+candidate manifest and target-fishing JSON under
+`data/raw/plato/r37/golden_fixture/` as its only small, controlled data exception.
 The manifest still records `raw_json_and_pdf_fixture_candidate` and
 `not_yet_allowlisted_for_scoring`. Its observed fingerprint is not in the empty
 production schema allowlist, so the parser can exercise the machine-readable

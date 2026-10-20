@@ -26,7 +26,7 @@ RESEARCH_CONTRACT_VERSION = "1.0"
 DEFAULT_RUN_MODE = "research_hypothesis"
 ALLOWED_RUN_MODES = {DEFAULT_RUN_MODE, "demo", "test"}
 TARGET_RANKING_POLICY_VERSION = "context_target_ranking_v1"
-MECHANISM_POLICY_VERSION = "rule_based_mechanism_v2_frozen_statistical_targets"
+MECHANISM_POLICY_VERSION = "rule_based_mechanism_v3_no_annotation_count_bonus"
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -145,6 +145,7 @@ def plato_resolution_audit(resolution: Mapping[str, Any]) -> Dict[str, Any]:
         "schema_fingerprint": str(cache.get("schema_fingerprint", "")),
         "schema_fixture_verified": cache.get("schema_fixture_verified") is True,
         "query_binding_status": str(query.get("query_binding_status", "")),
+        "structure_matching": deepcopy(cache.get("structure_matching", {"policy": "exact_stereochemistry"})),
         "canonical_isomeric_smiles": str(query.get("canonical_isomeric_smiles", "")),
         "inchikey": str(query.get("inchikey", "")),
         "raw_response_sha256": str(source.get("sha256", "")),

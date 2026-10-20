@@ -1,0 +1,178 @@
+{
+  "schema_version": "1.0",
+  "version": "literature_roles_20261011_v1",
+  "curation_status": "literature_curated_development",
+  "coverage": "Two exact drug structures; seven annotations; incomplete coverage, not an independent benchmark.",
+  "retrieved_on": "2026-10-11",
+  "references": {
+    "moa2012": {
+      "title": "Identifying mechanism-of-action targets for drugs and probes",
+      "year": 2012,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3396511/",
+      "doi": "10.1073/pnas.1204524109",
+      "type": "primary_research",
+      "use": "Distinguish measured interactions from mechanism-of-action assignments."
+    },
+    "chembl2025": {
+      "title": "Drug and Clinical Candidate Drug Data in ChEMBL",
+      "year": 2025,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12516679/",
+      "doi": "10.1021/acs.jmedchem.5c00920",
+      "type": "database_curation_methods",
+      "use": "Store therapeutic mechanism annotations separately from general bioactivity records."
+    },
+    "pralatrexate2009": {
+      "title": "Distinct mechanistic activity profile of pralatrexate in comparison to other antifolates in in vitro and in vivo models of human cancers",
+      "year": 2009,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2728224/",
+      "doi": "10.1007/s00280-009-0954-4",
+      "type": "primary_research",
+      "use": "Recombinant human DHFR inhibition; cellular uptake and polyglutamylation in NSCLC models."
+    },
+    "docetaxel_label": {
+      "title": "Docetaxel prescribing information, sections 12.1 and 12.3",
+      "year": 2025,
+      "url": "https://www.dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=654319ae-e5f9-4a6a-b566-201923153b6e",
+      "type": "regulatory_label",
+      "use": "Tubulin/microtubule mechanism and CYP3A4 metabolism; no TUBB3-specific binding validation."
+    },
+    "docetaxel_metabolism1996": {
+      "title": "Hepatic biotransformation of docetaxel (Taxotere) in vitro: involvement of the CYP3A subfamily in humans",
+      "year": 1996,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/8640817/",
+      "type": "primary_research",
+      "use": "Human liver microsome and hepatocyte metabolism; not evidence of tumor-cell target inhibition."
+    },
+    "docetaxel_transport1999": {
+      "title": "Interaction of Docetaxel (Taxotere) with Human P-Glycoprotein",
+      "year": 1999,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5926029/",
+      "doi": "10.1111/j.1349-7006.1999.tb00723.x",
+      "type": "primary_research",
+      "use": "Human ABCB1 substrate transport in transfected cells."
+    },
+    "docetaxel_uptake2014": {
+      "title": "Kinetic Interpretation of the Importance of OATP1B3 and MRP2 in Docetaxel-Induced Hematopoietic Toxicity",
+      "year": 2014,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4120017/",
+      "type": "primary_research",
+      "use": "OATP1B3-dependent docetaxel uptake in transporter expression systems."
+    },
+    "combination2007": {
+      "title": "A phase 1 study of pralatrexate in combination with paclitaxel or docetaxel in patients with advanced solid tumors",
+      "year": 2007,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/17473201/",
+      "doi": "10.1158/1078-0432.CCR-06-1754",
+      "type": "primary_clinical_study",
+      "use": "Combination background only; not HCT116-specific mechanism validation and not a scoring input."
+    }
+  },
+  "records": [
+    {
+      "id": "PRALA-DHFR",
+      "drug_name": "Pralatrexate",
+      "drug_inchikey": "OGSBUKJUDHAQEA-WMCAAGNKSA-N",
+      "target_gene": "DHFR",
+      "role": "pharmacodynamic_target",
+      "evidence_scope": "exact_protein",
+      "action": "inhibition",
+      "process": "folate-dependent nucleotide synthesis",
+      "claim": "Recombinant human DHFR inhibition was measured.",
+      "reference_ids": [
+        "pralatrexate2009"
+      ],
+      "experimental_context": "Recombinant human DHFR; not a combination or HCT116 experiment."
+    },
+    {
+      "id": "PRALA-RFC",
+      "drug_name": "Pralatrexate",
+      "drug_inchikey": "OGSBUKJUDHAQEA-WMCAAGNKSA-N",
+      "target_gene": "SLC19A1",
+      "role": "drug_transport",
+      "evidence_scope": "exact_protein",
+      "action": "uptake_substrate",
+      "process": "cellular drug uptake",
+      "claim": "RFC-1 mediates cellular uptake.",
+      "reference_ids": [
+        "pralatrexate2009"
+      ],
+      "experimental_context": "Antifolate transport and NSCLC models; current cell-line transport was not measured."
+    },
+    {
+      "id": "PRALA-FPGS",
+      "drug_name": "Pralatrexate",
+      "drug_inchikey": "OGSBUKJUDHAQEA-WMCAAGNKSA-N",
+      "target_gene": "FPGS",
+      "role": "drug_activation_retention",
+      "evidence_scope": "exact_protein",
+      "action": "polyglutamylation_substrate",
+      "process": "intracellular drug retention",
+      "claim": "Polyglutamylation promotes intracellular retention.",
+      "reference_ids": [
+        "pralatrexate2009"
+      ],
+      "experimental_context": "Intracellular conjugation; not evidence that FPGS inhibition explains the combination."
+    },
+    {
+      "id": "DOC-TUBB3-FAMILY",
+      "drug_name": "docetaxel",
+      "drug_inchikey": "ZDZOTLJHXYCWBA-VCVYQWHSSA-N",
+      "target_gene": "TUBB3",
+      "role": "pharmacodynamic_target",
+      "evidence_scope": "target_family",
+      "action": "microtubule_stabilization",
+      "process": "microtubule dynamics and mitosis",
+      "claim": "The candidate belongs to the tubulin family implicated in docetaxel pharmacology.",
+      "reference_ids": [
+        "docetaxel_label"
+      ],
+      "experimental_context": "Family-level annotation only; does not establish direct engagement or selective inhibition of human TUBB3."
+    },
+    {
+      "id": "DOC-CYP3A4",
+      "drug_name": "docetaxel",
+      "drug_inchikey": "ZDZOTLJHXYCWBA-VCVYQWHSSA-N",
+      "target_gene": "CYP3A4",
+      "role": "drug_metabolism",
+      "evidence_scope": "exact_protein",
+      "action": "metabolic_substrate",
+      "process": "drug metabolism",
+      "claim": "CYP3A4 metabolizes docetaxel.",
+      "reference_ids": [
+        "docetaxel_label",
+        "docetaxel_metabolism1996"
+      ],
+      "experimental_context": "Predominantly hepatic drug disposition; current tumor-cell metabolism was not established."
+    },
+    {
+      "id": "DOC-ABCB1",
+      "drug_name": "docetaxel",
+      "drug_inchikey": "ZDZOTLJHXYCWBA-VCVYQWHSSA-N",
+      "target_gene": "ABCB1",
+      "role": "drug_transport",
+      "evidence_scope": "exact_protein",
+      "action": "efflux_substrate",
+      "process": "drug efflux",
+      "claim": "Human P-glycoprotein transports docetaxel.",
+      "reference_ids": [
+        "docetaxel_transport1999"
+      ],
+      "experimental_context": "Human ABCB1 expressed in a porcine cell system; not HCT116-specific."
+    },
+    {
+      "id": "DOC-SLCO1B3",
+      "drug_name": "docetaxel",
+      "drug_inchikey": "ZDZOTLJHXYCWBA-VCVYQWHSSA-N",
+      "target_gene": "SLCO1B3",
+      "role": "drug_transport",
+      "evidence_scope": "exact_protein",
+      "action": "uptake_substrate",
+      "process": "cellular drug uptake",
+      "claim": "OATP1B3-expressing cells show docetaxel uptake.",
+      "reference_ids": [
+        "docetaxel_uptake2014"
+      ],
+      "experimental_context": "Transporter expression systems; uptake in the current tumor cell line was not measured."
+    }
+  ]
+}

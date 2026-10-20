@@ -510,7 +510,7 @@ lock 是人工审查后的信任锚，建议按下面顺序更新：
 
 - `production_configuration`；
 - PPI、expression、pathways、disease、target mapping 五个 runtime artifacts；
-- 受控 PLATO fixture manifest 和 JSON 的字节身份；code-only fresh clone 不含原件，须从获授权的数据包单独恢复；
+- 仓库显式跟踪的受控 PLATO fixture manifest 和 JSON；fresh clone 已包含这两个小型例外；
 - 各分组字节数和 `total_size_bytes`。
 
 其中 `total_size_bytes` 是 lock 中所有带 `relative_path` 和 digest 的记录大小之和。
@@ -572,9 +572,9 @@ git check-ignore -v outputs\<file>
 ```
 
 允许提交的是代码、文档、配置、registry 和 lock 元数据；不要提交普通 raw/processed
-字节、普通查询的 PLATO 响应、PDF、缓存、模型权重或运行输出。本代码发布也不包含
-fixture manifest 和 target-fishing JSON 原件；locks 只记录其预期身份。
-新增、替换或另外发布 fixture 仍须通过许可、脱敏和独立发布审查，并同步审核测试及 locks。
+字节、普通查询的 PLATO 响应、PDF、缓存、模型权重或运行输出。当前唯一的数据例外是
+Git 已显式跟踪且 locks 已固定的 fixture manifest 和 target-fishing JSON。新增或替换
+fixture 仍须通过许可、脱敏和独立发布审查，并同步更新忽略规则、测试及 locks。
 
 ## 13. 更新普通药物的 PLATO 数据
 

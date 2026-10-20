@@ -1,5 +1,8 @@
 # 论文机制假说模块：范围与审计合同
 
+当前工程验收见 [工程验证方案](ENGINEERING_VALIDATION.md)（2026-10-13）：
+六个开发案例与软件/输入扰动验证，无独立双人机制评阅要求。来源审核与以下声明边界仍保留。
+
 ## 1. 模块定位
 
 InterpreterPLATO 在论文中应被描述为“可审计的、规则驱动的 post-hoc 生物学机制假说
@@ -52,7 +55,7 @@ production schema allowlist 当前为空，因此真实 PLATO 导入仍会 fail 
 
 ## 5. 每个结果的最低审计字段
 
-结果 schema 5.2 同时声明 research contract 1.0 与 statistical contract 1.0。
+结果 schema 5.4 同时声明 research contract 1.0 与 statistical contract 1.1。
 每个输出至少包含：
 
 - 运行模式、测试夹具标志、声明边界和不具备正式结论资格的原因；
@@ -70,8 +73,8 @@ production schema allowlist 当前为空，因此真实 PLATO 导入仍会 fail 
 代码快照哈希记录的是实际运行文件内容，所以工作树未提交时仍可识别具体实现；Git dirty
 状态用于提示该结果不是仅由某个 commit 唯一决定。
 
-当前网络方法是 `weighted_fixed_disease_closest_v2`：基于 PPI 边置信度的加权距离、
-靶点到固定疾病模块的最近距离均值、与观测靶点不相交的度匹配随机集合。它不是严格的
+当前网络方法是 `weighted_fixed_disease_closest_v3_mapped_universe`：基于 PPI 边置信度的加权距离、
+原始覆盖率达标后对 PPI 内靶点与疾病模块交集计算最近距离均值、与观测靶点不相交的度匹配随机集合。它不是严格的
 Cheng 方法复现；可交换性、零模型尾概率和 BH 依赖条件尚未通过独立校准。
 完整定义见[统计方法与推断边界](STATISTICAL_METHODS.md)，不能沿用参考文献的验证结论。
 
@@ -98,7 +101,7 @@ Cheng 方法复现；可交换性、零模型尾概率和 BH 依赖条件尚未�
 
 论文评测的纳入漏斗、独立留出、盲评、相加/拮抗对照和资源消融见
 [拟议验证协议](VALIDATION_PROTOCOL.md)。该协议状态仍是 `proposed_not_executed`；
-回归测试通过不代表已完成独立机制评测。历史 5.1 及更早结果须按 5.2 从原始输入重跑，
+回归测试通过不代表已完成独立机制评测。历史 5.2 及更早结果须按 5.3 从原始输入重跑，
 不得只修改版本字段或追认旧的支持状态。
 
 ## 7. 后续升级条件

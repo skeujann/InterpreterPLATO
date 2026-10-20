@@ -359,7 +359,7 @@ def test_strict_positive_fixture_and_integrity(root: Path) -> None:
         advanced=False,
     )
     payload = result.to_dict()
-    assert payload["result_schema_version"] == "5.2"
+    assert payload["result_schema_version"] == "5.4"
     assert payload["metadata"]["target_mode"] == "plato_only"
     assert payload["credibility"]["formula_version"] == "evidence_credibility_v5_frozen_statistical_targets"
     assert payload["credibility"]["score_profile"]["name"] == "single_pair"
