@@ -2,6 +2,13 @@
 
 本项目是独立仓库，与 [ScoreRI](https://github.com/skeujann/ScoreRI) 分开维护。所有命令均从本仓库根目录执行；输入药物对和预测分数由调用方提供，运行时不需要相邻的 ScoreRI 源码。
 
+## 纯前端离线 Visualizer
+
+下载源码后双击 `visualizer/index.html`，即可在浏览器本地打开已有解释 JSON，查看网络、
+筛选节点、高亮双药与疾病路径、检查诊断并导出带标识的 PNG。无需运行 Python 或部署模型，
+文件不上传服务器；Cytoscape.js 随查看器打包。内置合成示例明确标注“概念示意（非真实计算结果）”。
+使用方法、单文件打包和证据边界见 [Visualizer 说明](visualizer/README.md)。
+
 ## 安装与测试
 
 ```bash

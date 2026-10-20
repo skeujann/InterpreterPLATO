@@ -28,3 +28,7 @@ venv/
 !.env.template
 .idea/
 .vscode/
+
+# Optional frontend developer dependencies and standalone builds.
+node_modules/
+/visualizer/dist/

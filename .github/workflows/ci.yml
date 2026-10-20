@@ -31,3 +31,17 @@ jobs:
         run: python -m pytest
       - name: Smoke-test console entry point
         run: interpreter-plato --help
+
+  visualizer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend test dependencies only
+        run: npm ci --prefix visualizer --ignore-scripts
+      - name: Test graph semantics and browser interaction logic
+        run: npm test --prefix visualizer
+      - name: Build offline standalone viewer
+        run: node visualizer/build.cjs --output "$RUNNER_TEMP/InterpreterPLATO-Visualizer.html"
