@@ -344,6 +344,16 @@ test('run suite switches case payloads and never promotes invalid statistics or 
     assert.match(get('run-verdict').textContent, /未获显著支持/); assert.match(get('run-metrics').textContent, /0\.8000/);
     assert.equal(h.document.querySelector('[data-run-index="0"]').getAttribute('aria-pressed'), 'true');
     assert.equal(h.document.querySelector('[data-run-index="1"]').getAttribute('aria-pressed'), 'false');
+    const drawn = []; let pendingImage;
+    h.cy().png = () => 'data:image/png;base64,test';
+    h.window.Image = class { constructor() { pendingImage = this; this.width = 500; this.height = 300; } set src(value) {} };
+    h.window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {}, drawImage() {}, fillText(value) { drawn.push(value); } });
+    h.window.HTMLCanvasElement.prototype.toBlob = callback => callback(new h.window.Blob(['test']));
+    h.window.URL.createObjectURL = () => 'blob:local-export-test'; h.window.URL.revokeObjectURL = () => {};
+    h.window.HTMLAnchorElement.prototype.click = () => {};
+    get('export-png').click(); h.document.querySelector('[data-run-index="1"]').click(); pendingImage.onload();
+    assert.match(drawn.join(' '), /实际运行 TEST-CASE/);
+    assert.doesNotMatch(drawn.join(' '), /TEST-INVALID/);
   } finally { h.close(); }
 });
 

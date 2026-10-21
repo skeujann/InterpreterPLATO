@@ -462,16 +462,17 @@
   }
   async function exportPng() {
     if (!state.cy || !state.model.nodeCount) return;
+    const exportedModel = state.model, exportedCaseId = state.runExample ? window.InterpreterRunExample.source.case_id : null;
     const dataUrl = state.cy.png({ full: true, scale: 2, bg: '#fbfcf6', maxWidth: 2400, maxHeight: 1700 });
     const image = new Image();
     image.onload = () => {
       const canvas = document.createElement('canvas'); canvas.width = Math.max(image.width, 720); canvas.height = image.height + 76;
       const context = canvas.getContext('2d'); context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, (canvas.width - image.width) / 2, 0);
       context.fillStyle = '#233952'; context.font = '14px "Microsoft YaHei", sans-serif';
-      context.fillText('InterpreterPLATO · ' + (state.runExample ? '实际运行 ' + window.InterpreterRunExample.source.case_id + ' · ' : '') + state.model.mode, 15, image.height + 27, canvas.width - 30);
+      context.fillText('InterpreterPLATO · ' + (exportedCaseId ? '实际运行 ' + exportedCaseId + ' · ' : '') + exportedModel.mode, 15, image.height + 27, canvas.width - 30);
       context.fillStyle = '#7d8ca0'; context.font = '11px "Microsoft YaHei", sans-serif';
       context.fillText('当前筛选视图 · 文件关系未独立核验 · PPI 无方向，连通不构成因果证据', 15, image.height + 51, canvas.width - 30);
-      canvas.toBlob(blob => { if (blob) download(blob, 'InterpreterPLATO-' + (state.model.synthetic ? 'SYNTHETIC-' : state.model.payload.run_mode === 'reference_example' ? 'REFERENCE-' : '') + 'network.png'); else error('浏览器未能导出图像。'); }, 'image/png');
+      canvas.toBlob(blob => { if (blob) download(blob, 'InterpreterPLATO-' + (exportedModel.synthetic ? 'SYNTHETIC-' : exportedModel.payload.run_mode === 'reference_example' ? 'REFERENCE-' : '') + 'network.png'); else error('浏览器未能导出图像。'); }, 'image/png');
     };
     image.onerror = () => error('浏览器未能导出图像。'); image.src = dataUrl;
   }
