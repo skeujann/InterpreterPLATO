@@ -287,7 +287,8 @@ test('embedded run preserves actual statistics, complete graph, path types and u
   try {
     const get = id => h.document.getElementById(id), shown = item => !item.hasClass('filtered') && !item.hasClass('focus-hidden');
     assert.equal(get('example-select').value, 'run'); assert.equal(get('run-summary').hidden, false);
-    assert.match(get('mode-title').textContent, /实际运行实例.*开发测试/);
+    assert.equal(get('mode-banner').hidden, true);
+    assert.equal(get('mode-title').textContent, ''); assert.equal(get('mode-description').textContent, '');
     assert.match(get('run-verdict').textContent, /未获显著支持/);
     assert.match(get('run-metrics').textContent, /0\.8000/); assert.match(get('run-metrics').textContent, /1\.0000/);
     assert.match(get('run-metrics').textContent, /调用方提供/); assert.match(get('run-metrics').textContent, /12\.3457/);
@@ -308,6 +309,7 @@ test('embedded run preserves actual statistics, complete graph, path types and u
     const payload = JSON.parse(JSON.stringify(bundle.payload)); payload.metadata = { ...bundle.presentation };
     await upload(h, payload);
     assert.equal(get('run-summary').hidden, true); assert.equal(get('reference-view-switch').hidden, true);
+    assert.equal(get('mode-banner').hidden, false);
     assert.equal(h.cy().nodes('.run-drug, .run-context').length, 0);
     get('example-select').value = 'run'; get('load-example').click(); assert.equal(get('run-summary').hidden, false);
     get('example-select').value = 'reference'; get('load-example').click();

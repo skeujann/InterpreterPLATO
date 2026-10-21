@@ -402,13 +402,10 @@
     $('source-name').textContent = state.source;
     const concept = payload.metadata && payload.metadata.conceptual_example === true;
     $('mode-banner').className = 'mode-banner ' + (model.synthetic || payload.run_mode === 'test' || payload.run_mode === 'demo' ? 'synthetic' : 'research');
-    $('mode-title').textContent = concept ? '概念示意（非真实计算结果）' : model.mode;
-    $('mode-description').textContent = concept ? '全部节点与关系为合成测试数据，不用于科研证据。' : '只展示输入文件记录的关系，不独立核验原始 PPI，不推导因果或机制真实性。';
+    $('mode-banner').hidden = state.runExample;
+    $('mode-title').textContent = state.runExample ? '' : concept ? '概念示意（非真实计算结果）' : model.mode;
+    $('mode-description').textContent = state.runExample ? '' : concept ? '全部节点与关系为合成测试数据，不用于科研证据。' : '只展示输入文件记录的关系，不独立核验原始 PPI，不推导因果或机制真实性。';
     if (payload.run_mode === 'reference_example') $('mode-description').textContent = '人工整理的药物与公共注释；互作未在该临床背景逐边验证，不运行模型或统计，不证明协同。';
-    if (state.runExample) {
-      $('mode-title').textContent = '实际运行实例 · 开发测试';
-      $('mode-description').textContent = '读取已有解释器 JSON · PLATO 候选靶点 · 保留原始统计与诊断，非正式验证结果。';
-    }
     state.cy = window.cytoscape({ container: $('cy'), elements: model.elements, style: G.styles, layout: { name: 'grid', padding: 40 }, minZoom: 0.12, maxZoom: 3.5 });
     if (state.reference) {
       state.cy.nodes().forEach(node => {

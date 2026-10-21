@@ -217,7 +217,7 @@ select { background: #f8faf1; color: #5e6c4e; border: 1px solid #dfe4d3; border-
 .detail-tabs button, .inspector-label, .detail-content .muted, .json-view, .reference-limit, .source-card p, .reference-license, .evidence-note { color: #5f7550; }
 .source-card a, .reference-license a, .evidence-note summary { color: #466d2b; }
 .diagnostic-item { color: #7c612b; }
-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 15px 1px; font-size: 10px; color: #9ea790; }
+footer { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; padding: 15px 1px; font-size: 10px; color: #9ea790; }
 footer > span { display: inline-flex; align-items: center; gap: 7px; }footer .icon { width: 13px; height: 13px; }.footer-brand { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; }.small { font-size: 11px; }
 @media (min-width: 1650px) { main { padding-left: 50px; padding-right: 50px; }.workspace { min-height: 650px; }.explorer-body { grid-template-columns: 280px minmax(0,1fr); }.explorer-body.inspector-open { grid-template-columns: 280px minmax(0,1fr) 340px; }.explorer-body.sidebar-collapsed.inspector-open { grid-template-columns: minmax(0,1fr) 340px; } }
 @media (max-width: 1250px) and (min-width: 761px) { .brand-subtitle { display: none; }.right-panel { position: absolute; top: 0; bottom: 0; right: 0; width: 320px; z-index: 15; box-shadow: -6px 0 24px #314b1520; }.explorer-body.inspector-open { grid-template-columns: 260px minmax(0,1fr); }.explorer-body.sidebar-collapsed.inspector-open { grid-template-columns: minmax(0,1fr); }.canvas-help { display: none; } }
