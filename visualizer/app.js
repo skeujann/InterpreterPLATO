@@ -134,6 +134,7 @@
     $('view-title').appendChild(element('br'));
     $('view-title').appendChild(document.createTextNode(state.reference ? '读到疾病背景。' : '读懂已有证据。'));
     $('view-description').textContent = state.reference ? '沿已有互作，经 BRAF 读到疾病模块的文献背景。' : '打开解释 JSON，在本地探索药物、靶点与证据网络。';
+    $('view-description').hidden = state.runExample;
     $('hero-type').textContent = state.reference ? '阅读终点 / 疾病模块' : 'LOCAL EVIDENCE';
     $('hero-endpoint').replaceChildren(document.createTextNode(state.reference ? '黑色素瘤' : 'JSON'), element('span', 'endpoint-period', '.'));
     $('hero-endpoint').classList.toggle('disease-title', state.reference);
@@ -147,8 +148,8 @@
     $('focus-stage-labels').classList.toggle('run-stages', state.runExample);
     document.querySelector('.hero-coordinate').textContent = state.runExample ? '03 /' : '04 /';
     if (state.runExample) {
-      $('view-title').replaceChildren(document.createTextNode('从 PLATO 候选，'), element('br'), document.createTextNode('读到真实运行结果。'));
-      $('view-description').textContent = '读取已有解释器输出，分开展示网络路径、规则分类与统计结果。';
+      $('view-title').textContent = '药物组合机制图谱';
+      $('view-description').textContent = '';
       $('hero-type').textContent = '分析细胞系 / 开发测试';
       $('hero-endpoint').replaceChildren(document.createTextNode(state.model.payload.cell_line || 'LOCAL'), element('span', 'endpoint-period', '.'));
       $('hero-endpoint').classList.remove('disease-title');
