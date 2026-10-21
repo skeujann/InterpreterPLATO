@@ -49,6 +49,7 @@
     $('inspector-panel').hidden = !open;
     $('explorer-body').classList.toggle('inspector-open', open);
     $('toggle-inspector').setAttribute('aria-expanded', String(open));
+    $('toggle-inspector').classList.toggle('active', open);
     if (state.cy) state.cy.resize();
   }
   function sidebar(open) {
@@ -321,8 +322,8 @@
     state.cy = null; inspector(false); tab('details');
     $('node-search').value = ''; $('search-status').textContent = '输入名称可高亮匹配节点';
     $('case-title').textContent = (payload.drug1_name || payload.drug1 || '未标注药物 A') + ' + ' + (payload.drug2_name || payload.drug2 || '未标注药物 B');
-    $('case-meta').textContent = (payload.cell_line ? payload.cell_line + ' · ' : '') + '记录 ' + (index + 1) + ' / ' + state.rows.length;
-    if (state.reference) $('case-meta').textContent = payload.metadata.context;
+    $('case-meta').textContent = state.reference ? '' : (payload.cell_line ? payload.cell_line + ' · ' : '') + '记录 ' + (index + 1) + ' / ' + state.rows.length;
+    $('case-meta').hidden = state.reference;
     $('source-name').textContent = state.source;
     const concept = payload.metadata && payload.metadata.conceptual_example === true;
     $('mode-banner').className = 'mode-banner ' + (model.synthetic || payload.run_mode === 'test' || payload.run_mode === 'demo' ? 'synthetic' : 'research');
