@@ -258,18 +258,13 @@ test('uploaded files cannot activate curated layout, source links or reference t
   } finally { h.close(); }
 });
 
-test('downloaded reference JSON reloads without changing its reference-only semantics', async () => {
+test('frozen reference JSON reloads without changing its reference-only semantics', async () => {
   const h = await harness('reference');
   try {
-    const contents = [], downloads = [];
-    h.window.Blob = class { constructor(parts) { contents.push(parts.join('')); } };
-    h.window.URL.createObjectURL = () => 'blob:local-reference'; h.window.URL.revokeObjectURL = () => {};
-    h.window.HTMLAnchorElement.prototype.click = function () { downloads.push(this.download); };
-    h.document.getElementById('download-example').click();
-    assert.deepEqual(downloads, ['dabrafenib-trametinib.reference.json']);
-    const payload = JSON.parse(contents[0]);
+    const contents = fs.readFileSync(path.join(root, 'examples/dabrafenib-trametinib.json'), 'utf8');
+    const payload = JSON.parse(contents);
     assert.equal(payload.run_mode, 'reference_example'); assert.equal(payload.predicted_synergy, null);
-    await upload(h, contents[0], downloads[0]);
+    await upload(h, contents, 'dabrafenib-trametinib.reference.json');
     assert.equal(h.cy().nodes().length, 11); assert.equal(h.cy().edges().length, 20);
     assert.equal(h.document.querySelectorAll('.path-button:disabled').length, 0);
     assert.match(h.document.getElementById('path-list').textContent, /文献背景/);

@@ -394,7 +394,6 @@
     if (!G || !window.InterpreterReference || !window.InterpreterExample || typeof window.cytoscape !== 'function') { error('查看器资源未加载完整。请保留目录内的资源文件，或使用打包后的单文件 HTML。'); return; }
     $('file-input').addEventListener('change', event => openFile(event.target.files[0]));
     $('load-example').addEventListener('click', loadBuiltin); $('example-select').addEventListener('change', loadBuiltin);
-    $('download-example').addEventListener('click', () => download(new Blob([JSON.stringify(builtin(), null, 2)], { type: 'application/json' }), $('example-select').value === 'synthetic' ? 'synthetic-explanation.json' : 'dabrafenib-trametinib.reference.json'));
     document.querySelectorAll('[data-tour]').forEach(button => button.addEventListener('click', () => tour(button.dataset.tour)));
     $('view-focus').addEventListener('click', () => setReferenceView('focus'));
     $('view-full').addEventListener('click', () => setReferenceView('full'));
