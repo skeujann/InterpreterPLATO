@@ -30,7 +30,11 @@ async function harness(example = 'synthetic', runBundle) {
   };
   window.fetch = () => { throw new Error('Network access is forbidden in viewer tests'); };
   window.alert = () => { throw new Error('Untrusted text was executed'); };
-  if (runBundle) window.InterpreterRunExample = window.JSON.parse(JSON.stringify(runBundle));
+  if (runBundle) {
+    const value = window.JSON.parse(JSON.stringify(runBundle));
+    if (Array.isArray(value)) { window.InterpreterRunExamples = value; window.InterpreterRunExample = value[0]; }
+    else window.InterpreterRunExample = value;
+  }
   for (const source of ['example.js', 'reference.js', 'graph-model.js', 'app.js']) window.eval(fs.readFileSync(path.join(root, source), 'utf8'));
   await tick();
   if (example === 'synthetic') {
@@ -305,6 +309,41 @@ test('embedded run preserves actual statistics, complete graph, path types and u
     get('example-select').value = 'run'; get('load-example').click(); assert.equal(get('run-summary').hidden, false);
     get('example-select').value = 'reference'; get('load-example').click();
     assert.equal(get('run-summary').hidden, true); assert.match(get('focus-stage-labels').textContent, /BRAF/);
+  } finally { h.close(); }
+});
+
+test('run suite switches case payloads and never promotes invalid statistics or zero-hop membership', async () => {
+  const { withRunFile } = require('./run-example-fixture.cjs'), { prepareRun } = require('../visualizer/prepare-run.cjs');
+  const bundles = withRunFile(({ file, payload }) => {
+    const first = prepareRun(file);
+    payload.audit.engineering_case.case_id = 'TEST-INVALID'; payload.cell_line = 'INVALID-CELL';
+    Object.assign(payload.network_statistics, { valid: false, statistically_supported: true, quality_status: 'insufficient', p_A_adjusted: 0.00001 });
+    payload.local_evidence.top_paths[0].path = ['A0']; payload.local_evidence.top_paths[0].length = 0;
+    payload.evidence_graphs.explanation_evidence_graph.edges.push({ source: 'gene:A0', target: 'disease_module:fixture', type: 'belongs_to_disease_module' });
+    fs.writeFileSync(file, JSON.stringify(payload)); const second = prepareRun(file);
+    payload.audit.engineering_case.case_id = 'TEST-SINGLE-SIDE';
+    Object.assign(payload.network_statistics, { valid: true, quality_status: 'limited', p_A_adjusted: 0.007, near_A: true, near_B: false });
+    fs.writeFileSync(file, JSON.stringify(payload)); return [first, second, prepareRun(file)];
+  });
+  const h = await harness('run', bundles);
+  try {
+    const get = id => h.document.getElementById(id);
+    assert.equal(get('run-suite').hidden, false); assert.equal(h.document.querySelectorAll('[data-run-index]').length, 3);
+    h.document.querySelector('[data-run-index="1"]').click();
+    assert.equal(get('example-select').value, 'run:1'); assert.match(get('case-meta').textContent, /INVALID-CELL/);
+    assert.match(get('run-verdict').textContent, /不可评估/); assert.doesNotMatch(get('run-metrics').textContent, /0\.0000/);
+    assert.match(get('run-metrics').textContent, /不可评估/);
+    h.document.querySelector('.path-button').click();
+    assert.equal(h.cy().edges('.highlighted').length, 2);
+    assert.equal(h.cy().edges('.highlighted').filter(edge => edge.data('category') === 'ppi').length, 0);
+    assert.match(get('search-status').textContent, /零跳/);
+    get('example-select').value = 'run:2'; get('example-select').dispatchEvent(new h.window.Event('change'));
+    assert.match(get('run-verdict').textContent, /仅一侧/); assert.match(get('run-rule').textContent, /有限/);
+    assert.match(get('run-metrics').textContent, /0\.0070/);
+    h.document.querySelector('[data-run-index="0"]').click();
+    assert.match(get('run-verdict').textContent, /未获显著支持/); assert.match(get('run-metrics').textContent, /0\.8000/);
+    assert.equal(h.document.querySelector('[data-run-index="0"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(h.document.querySelector('[data-run-index="1"]').getAttribute('aria-pressed'), 'false');
   } finally { h.close(); }
 });
 

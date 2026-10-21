@@ -28,13 +28,13 @@ function prepareRun(file, requestedPaths = []) {
     const last = 'gene:' + row.genes[row.genes.length - 1];
     return graph.nodes.find(node => node.type === 'disease_module' && linked('disease', last, node.id));
   }
-  const eligible = model.paths.filter(row => row.valid && row.kind === 'disease' && !row.zeroHop &&
+  const eligible = model.paths.filter(row => row.valid && row.kind === 'disease' &&
     drugNames.includes(row.raw.drug) && contextFor(row) &&
     linked('target', drugNodes[drugNames.indexOf(row.raw.drug)].id, 'gene:' + row.genes[0]));
   const paths = requestedPaths.length ? requestedPaths.map(id => eligible.find(row => row.id === id))
-    : drugNames.map(name => eligible.find(row => row.raw.drug === name));
+    : drugNames.map(name => eligible.find(row => row.raw.drug === name && !row.zeroHop) || eligible.find(row => row.raw.drug === name));
   if (paths.length !== 2 || paths.some(row => !row) || new Set(paths.map(row => row.raw.drug)).size !== 2) {
-    throw new Error('Choose one recorded non-zero disease path for each drug; missing edges are never supplied');
+    throw new Error('Choose one recorded disease path for each drug; missing edges are never supplied');
   }
   const contexts = paths.map(contextFor);
   if (contexts[0].id !== contexts[1].id) throw new Error('The selected paths must lead to the same recorded disease module');
@@ -51,13 +51,13 @@ function prepareRun(file, requestedPaths = []) {
       ids.add(id);
       // Position is editorial only; all nodes and edges remain the original recorded data.
       if (!positions[id]) {
-        positions[id] = [-130 + index * 290, y];
-        compactPositions[id] = [x, -80 + index * 150];
+        positions[id] = [genes.length === 1 ? 160 : -130 + index * 290, y];
+        compactPositions[id] = [x, genes.length === 1 ? 70 : -80 + index * 150];
       }
     });
   }
   const endpoint = contexts[0].id; ids.add(endpoint);
-  positions[endpoint] = [-130 + (maxGenes - 1) * 290 + 360, 0]; compactPositions[endpoint] = [0, -80 + (maxGenes - 1) * 150 + 170];
+  positions[endpoint] = [-130 + Math.max(1, maxGenes - 1) * 290 + 360, 0]; compactPositions[endpoint] = [0, -80 + Math.max(1, maxGenes - 1) * 150 + 170];
   const labels = Array.isArray(payload.disease_context_labels) ? payload.disease_context_labels.join(' / ') : '';
   const source = payload.disease_context_source || '输入记录中的疾病集合';
   const contextLabel = labels === 'pan_cancer_tier1' ? '泛癌 Tier 1' : labels || contexts[0].name;

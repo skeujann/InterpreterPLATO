@@ -3,6 +3,9 @@
   'use strict';
   const G = window.InterpreterGraph;
   const $ = id => document.getElementById(id);
+  const RUNS = Array.isArray(window.InterpreterRunExamples) ? window.InterpreterRunExamples : window.InterpreterRunExample ? [window.InterpreterRunExample] : [];
+  const QUALITY = { adequate: '充分', limited: '有限', insufficient: '不足' };
+  const RULES = { network_close_distinct_processes: '网络接近，过程注释不同', network_proximal_targets: '候选靶点在 PPI 网络中接近', shared_pathway_co_modulation: '两侧候选靶点共同富集于部分通路', overlapping_single_exposure: '一侧疾病邻近，靶点或网络邻域存在重叠' };
   const state = { cy: null, rows: [], model: null, source: '', selectedPath: null, reference: false, runExample: false, referenceView: 'focus', compact: false };
   const COMPACT_POSITIONS = { 'drug:Dabrafenib': [-100, -220], 'drug:Trametinib': [100, -220], 'gene:MAP2K1': [40, -80], 'gene:MAP2K2': [150, 10], 'gene:BRAF': [-65, 75], 'disease_module:literature-context': [50, 240] };
   const GROUP_LABELS = { gene: '基因／蛋白节点', drug: '药物', pathway: '通路集合', disease_module: '疾病基因集合', prediction_evidence: '预测证据记录', mechanism: '报告摘要结构', counterfactual: '敏感性分析记录' };
@@ -80,17 +83,22 @@
   }
   function renderRunSummary() {
     $('run-summary').hidden = !state.runExample; $('run-guide').hidden = !state.runExample;
+    $('run-suite').hidden = !state.runExample || RUNS.length < 2;
+    document.querySelectorAll('[data-run-index]').forEach(button => button.setAttribute('aria-pressed', String(state.runExample && RUNS[Number(button.dataset.runIndex)].payload === state.model.payload)));
     if (!state.runExample) return;
     const p = state.model.payload, stats = p.network_statistics || {}, source = window.InterpreterRunExample.source;
-    $('run-verdict').textContent = stats.statistically_supported === true ? '网络统计记录：获得支持' : stats.statistically_supported === false ? '疾病邻近未获显著支持' : '统计支持状态未记录';
-    $('run-rule').textContent = (p.mechanism_type === 'network_close_distinct_processes' ? '探索性规则分类：网络接近，过程注释不同。' : '探索性规则分类：' + p.mechanism_type) + ' ' + (stats.n_randomizations || '未记录') + ' 次随机化。';
+    const evaluated = stats.valid === true;
+    $('run-verdict').textContent = !evaluated ? '网络统计不可评估' : stats.statistically_supported === true
+      ? typeof stats.near_A === 'boolean' && typeof stats.near_B === 'boolean' && stats.near_A !== stats.near_B ? '仅一侧疾病邻近获支持' : '网络统计记录：获得支持'
+      : stats.statistically_supported === false ? '疾病邻近未获显著支持' : '统计支持状态未记录';
+    $('run-rule').textContent = '探索性规则分类：' + (RULES[p.mechanism_type] || p.mechanism_type) + '。' + (stats.n_randomizations || '未记录') + ' 次随机化 · 统计质量：' + (QUALITY[stats.quality_status] || stats.quality_status || '未记录') + '。';
     const metrics = $('run-metrics'); metrics.replaceChildren();
     for (const [label, value, note] of [
-      [p.drug1_name + ' / 校正 p', stats.p_A_adjusted, '疾病邻近检验'],
-      [p.drug2_name + ' / 校正 p', stats.p_B_adjusted, '疾病邻近检验'],
+      [p.drug1_name + ' / 校正 p', evaluated ? stats.p_A_adjusted : null, evaluated ? '疾病邻近检验' : '统计质量不足，未提供有效 p 值'],
+      [p.drug2_name + ' / 校正 p', evaluated ? stats.p_B_adjusted : null, evaluated ? '疾病邻近检验' : '统计质量不足，未提供有效 p 值'],
       ['上游输入分数', p.predicted_synergy, '由调用方提供，非本次解释器计算'],
     ]) {
-      const item = element('div'); item.append(element('dt', '', label), element('dd', '', typeof value === 'number' && Number.isFinite(value) ? value.toFixed(4) : '未记录'), element('small', '', note)); metrics.appendChild(item);
+      const item = element('div'); item.append(element('dt', '', label), element('dd', '', typeof value === 'number' && Number.isFinite(value) ? value.toFixed(4) : !evaluated && label.includes('校正 p') ? '不可评估' : '未记录'), element('small', '', note)); metrics.appendChild(item);
     }
     $('run-guide-id').textContent = source.case_id;
     $('run-guide-note').textContent = '来自已有运行 JSON · ' + guide().pathIds.length + ' 条选定疾病路径';
@@ -186,7 +194,12 @@
       input.checked = ['ppi', 'target'].includes(input.dataset.edgeGroup) || (!reference && input.dataset.edgeGroup === 'membership');
     });
   }
-  function builtin() { return $('example-select').value === 'run' && window.InterpreterRunExample ? window.InterpreterRunExample.payload : $('example-select').value === 'synthetic' ? window.InterpreterExample : window.InterpreterReference; }
+  function builtin() {
+    const selected = $('example-select').value;
+    const index = selected === 'run' ? 0 : selected.startsWith('run:') ? Number(selected.slice(4)) : -1;
+    if (Number.isInteger(index) && RUNS[index]) { window.InterpreterRunExample = RUNS[index]; return RUNS[index].payload; }
+    return selected === 'synthetic' ? window.InterpreterExample : window.InterpreterReference;
+  }
   function loadBuiltin() {
     const payload = builtin(), reference = payload === window.InterpreterReference;
     $('case-guide').open = false;
@@ -339,7 +352,7 @@
         button.appendChild(heading);
         button.appendChild(element('span', 'path-route', path.genes.map(gene => state.reference && gene === 'MAP2K1' ? 'MEK1' : state.reference && gene === 'MAP2K2' ? 'MEK2' : gene).join(' — ')));
         if (focusView()) button.appendChild(element('span', 'path-destination', state.runExample ? '⋯ ' + guide().contextLabel + ' · 疾病集合' : '⋯ 黑色素瘤 · 文献背景'));
-        if (focusView()) button.appendChild(element('span', 'path-zero', path.zeroHop ? '直接靶点关联 · 0 条 PPI' : '靶点关联 + ' + path.edgeIds.length + ' 条无向 PPI'));
+        if (focusView()) button.appendChild(element('span', 'path-zero', path.zeroHop ? state.runExample ? '候选靶点即集合成员 · 0 条 PPI' : '直接靶点关联 · 0 条 PPI' : '靶点关联 + ' + path.edgeIds.length + ' 条无向 PPI'));
         else if (path.zeroHop) button.appendChild(element('span', 'path-zero', kind === 'cross' ? '共享节点零跳 · 0 条 PPI' : referenceMode() ? '文献背景成员零跳 · 0 条 PPI' : '疾病集合成员零跳 · 0 条 PPI'));
         else button.appendChild(element('span', 'path-zero', (path.genes.length - 1) + ' 跳 · 仅高亮文件中已有的边'));
         if (!path.valid) button.appendChild(element('span', 'path-issue', '无法高亮：' + path.missing.join('；')));
@@ -464,8 +477,17 @@
   }
   function boot() {
     if (!G || !window.InterpreterReference || !window.InterpreterExample || typeof window.cytoscape !== 'function') { error('查看器资源未加载完整。请保留目录内的资源文件，或使用打包后的单文件 HTML。'); return; }
-    if (window.InterpreterRunExample && window.InterpreterRunExample.schema === 'interpreterplato-local-run/v1') {
-      $('example-select').prepend(new Option('实际运行 · ' + window.InterpreterRunExample.source.case_id, 'run', true, true));
+    if (RUNS.length) {
+      const buttons = $('run-case-list'); buttons.replaceChildren();
+      RUNS.forEach((run, index) => {
+        if (run.schema !== 'interpreterplato-local-run/v1') throw new Error('Unknown local run bundle schema');
+        const value = index ? 'run:' + index : 'run', p = run.payload, quality = p.network_statistics && p.network_statistics.quality_status;
+        $('example-select').insertBefore(new Option('实际运行 · ' + run.source.case_id, value), $('example-select').options[index]);
+        const button = element('button', 'run-case-button'); button.type = 'button'; button.dataset.runIndex = String(index); button.setAttribute('aria-pressed', 'false');
+        button.append(element('small', '', run.source.case_id), element('strong', '', p.drug1_name + ' + ' + p.drug2_name), element('span', '', (p.cell_line || '未记录细胞系') + ' · 统计质量' + (QUALITY[quality] || quality || '未记录')));
+        button.addEventListener('click', () => { $('example-select').value = value; loadBuiltin(); }); buttons.appendChild(button);
+      });
+      $('run-suite-count').textContent = RUNS.length + ' 个已完成的开发测试实例';
       $('example-select').value = 'run';
     }
     $('show-run-details').addEventListener('click', showRunDetails);

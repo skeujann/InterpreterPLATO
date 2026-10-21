@@ -122,10 +122,12 @@ test('local run build preserves the payload and source hash, and refuses unsuppo
     assert.match(html, /window\.InterpreterRunExample/); assert.doesNotMatch(html, /<script[^>]+src=/i);
     assert.doesNotMatch(html, /<img src=x/); assert.throws(() => build(file, { caseFile: file }), /must not overwrite/);
     [...html.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)].forEach(([, source]) => new vm.Script(source));
-    assert.throws(() => prepareRun(file, ['disease:0', 'disease:999']), /recorded non-zero/);
+    const suiteOutput = build(path.join(temporary, 'suite.html'), { cases: [{ file }, { file }] });
+    assert.match(fs.readFileSync(suiteOutput, 'utf8'), /window\.InterpreterRunExamples = \[/);
+    assert.throws(() => prepareRun(file, ['disease:0', 'disease:999']), /recorded disease/);
     payload.evidence_graphs.explanation_evidence_graph.edges = payload.evidence_graphs.explanation_evidence_graph.edges.filter(edge => edge.source !== 'gene:B1');
     fs.writeFileSync(file, JSON.stringify(payload));
-    assert.throws(() => prepareRun(file), /recorded non-zero/);
+    assert.throws(() => prepareRun(file), /recorded disease/);
     payload.generated_from_test_fixture = true; fs.writeFileSync(file, JSON.stringify(payload));
     assert.throws(() => prepareRun(file), /non-synthetic/);
   });
