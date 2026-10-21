@@ -302,6 +302,11 @@ test('embedded run preserves actual statistics, complete graph, path types and u
     assert.equal(terminal.length, 1); assert.equal(terminal.hasClass('focus-hidden'), true);
     assert.doesNotMatch(get('path-list').textContent, /fixture_context/);
     assert.equal(get('focus-stage-labels').children.length, 3);
+    const drugStage = get('focus-stage-labels').children[0];
+    const drugCenter = () => h.cy().nodes('.run-drug').reduce((sum, node) => sum + node.renderedPosition('x'), 0) / 2;
+    assert.equal(parseFloat(drugStage.style.left), drugCenter());
+    h.cy().pan({ x: 72, y: 24 }); h.cy().zoom(1.25);
+    assert.equal(parseFloat(drugStage.style.left), drugCenter());
     h.document.querySelector('.path-button').click();
     assert.deepEqual([...h.cy().edges('.highlighted')].map(edge => edge.data('category')).sort(), ['ppi', 'target']);
     const ids = h.cy().elements().map(item => item.id());

@@ -6,7 +6,7 @@
   const RUNS = Array.isArray(window.InterpreterRunExamples) ? window.InterpreterRunExamples : window.InterpreterRunExample ? [window.InterpreterRunExample] : [];
   const QUALITY = { adequate: '充分', limited: '有限', insufficient: '不足' };
   const RULES = { network_close_distinct_processes: '网络接近，过程注释不同', network_proximal_targets: '候选靶点在 PPI 网络中接近', shared_pathway_co_modulation: '两侧候选靶点共同富集于部分通路', overlapping_single_exposure: '一侧疾病邻近，靶点或网络邻域存在重叠' };
-  const state = { cy: null, rows: [], model: null, source: '', selectedPath: null, hoverElements: null, reference: false, runExample: false, referenceView: 'focus', compact: false };
+  const state = { cy: null, rows: [], model: null, source: '', selectedPath: null, hoverElements: null, stageColumns: [], canvasSize: '', reference: false, runExample: false, referenceView: 'focus', compact: false };
   const COMPACT_POSITIONS = { 'drug:Dabrafenib': [-100, -220], 'drug:Trametinib': [100, -220], 'gene:MAP2K1': [40, -80], 'gene:MAP2K2': [150, 10], 'gene:BRAF': [-65, 75], 'disease_module:literature-context': [50, 240] };
   const GROUP_LABELS = { gene: '基因／蛋白节点', drug: '药物', pathway: '通路集合', disease_module: '疾病基因集合', prediction_evidence: '预测证据记录', mechanism: '报告摘要结构', counterfactual: '敏感性分析记录' };
   const EDGE_LABELS = { ppi: '文件记录的无向 PPI', target: '候选靶点关联', disease: '疾病集合归属', pathway: '通路集合归属', report: '报告结构／证据支持', hypothesis: '规则生成假说', other: '未分类关系' };
@@ -118,6 +118,8 @@
   }
   function viewCopy() {
     state.cy.elements().toggleClass('overview', !focusView());
+    document.querySelector('.page-heading').classList.toggle('run-heading', state.runExample);
+    state.stageColumns = []; $('focus-stage-labels').replaceChildren();
     $('overview-layout').hidden = focusView(); $('overview-layout').disabled = focusView();
     $('reference-view-switch').hidden = !guided();
     $('reference-view-switch').setAttribute('aria-label', state.runExample ? '运行实例显示范围' : '文献实例显示范围');
@@ -139,11 +141,6 @@
     $('hero-endpoint').classList.toggle('run-title', state.runExample);
     $('hero-note').textContent = state.reference ? 'BRAF V600 · 文献背景，非计算疾病基因集。' : '文件留在本地，关系来自输入记录。';
     $('canvas-caption-text').textContent = caption();
-    const stages = state.runExample ? ['药物', 'PLATO 候选靶点', 'PPI 路径基因'] : ['药物', '靶点与互作', 'BRAF', '疾病模块'];
-    $('focus-stage-labels').replaceChildren(...stages.map((label, index) => {
-      const span = element('span'); span.append(element('b', '', String(index + 1).padStart(2, '0')), document.createTextNode(' ' + label)); return span;
-    }));
-    $('focus-stage-labels').classList.toggle('run-stages', state.runExample);
     document.querySelector('.hero-coordinate').textContent = state.runExample ? '03 /' : '04 /';
     if (state.runExample) {
       $('view-title').textContent = '药物组合机制图谱';
@@ -154,6 +151,41 @@
       $('hero-note').textContent = window.InterpreterRunExample.source.case_id;
     }
     renderRunSummary();
+  }
+  function positionStageLabels() {
+    for (const column of state.stageColumns) {
+      const x = column.nodes.reduce((sum, node) => sum + node.renderedPosition('x'), 0) / column.nodes.length;
+      column.label.style.left = x + 'px';
+      column.label.hidden = $('cy').clientWidth > 0 && (x < 0 || x > $('cy').clientWidth);
+    }
+  }
+  function renderStageLabels() {
+    const container = $('focus-stage-labels');
+    container.hidden = !focusView() || state.compact || $('layout-select').value !== 'preset';
+    container.replaceChildren(); state.stageColumns = [];
+    if (container.hidden) return;
+    let columns;
+    if (state.runExample) {
+      const byPosition = new Map(), positions = guide().positions;
+      state.cy.nodes().filter(shown).forEach(node => {
+        const point = positions[node.data('originalId')];
+        if (!point) return;
+        if (!byPosition.has(point[0])) byPosition.set(point[0], []);
+        byPosition.get(point[0]).push(node);
+      });
+      columns = [...byPosition].sort((a, b) => a[0] - b[0]).map(([, nodes]) => {
+        const targets = nodes.some(node => node.hasClass('run-target')), members = nodes.some(node => node.hasClass('run-member'));
+        return { nodes, title: nodes.some(node => node.data('type') === 'drug') ? '药物' : targets && members ? '候选靶点 / 路径基因' : targets ? 'PLATO 候选靶点' : 'PPI 路径基因' };
+      });
+    } else {
+      columns = [['reference-drug', '药物'], ['reference-target', '靶点与互作'], ['reference-anchor', 'BRAF'], ['reference-context', '疾病模块']]
+        .map(([group, title]) => ({ title, nodes: state.cy.nodes('.' + group).filter(shown).toArray() }));
+    }
+    columns.filter(column => column.nodes.length).forEach((column, index) => {
+      const label = element('span'); label.append(element('b', '', String(index + 1).padStart(2, '0')), document.createTextNode(' ' + column.title));
+      container.appendChild(label); state.stageColumns.push({ nodes: column.nodes, label });
+    });
+    positionStageLabels();
   }
   function setReferenceView(kind) {
     if (!guided() || !state.cy) return;
@@ -323,6 +355,7 @@
   function layout() {
     if (!state.cy || !state.model.nodeCount) return;
     clearHover();
+    state.canvasSize = $('cy').clientWidth + 'x' + $('cy').clientHeight;
     const name = $('layout-select').value;
     state.compact = compactView();
     state.cy.nodes().toggleClass('compact-reference', state.compact);
@@ -333,7 +366,7 @@
       if (!guided()) { $('layout-select').value = 'atlas'; layout(); return; }
       const positions = state.compact ? guide().compactPositions : guide().positions;
       state.cy.nodes().forEach(node => { const point = positions[node.data('originalId')]; if (point) node.position({ x: point[0], y: point[1] }); });
-      options.padding = state.compact ? 28 : focusView() ? 45 : 48;
+      options.padding = state.compact ? 28 : focusView() ? 64 : 48;
     }
     const visibleNodes = state.cy.nodes().filter(shown).length;
     if (name === 'cose' && visibleNodes > 400) {
@@ -362,6 +395,7 @@
       }
     }
     state.cy.elements().filter(shown).layout(options).run();
+    renderStageLabels();
   }
   function selectPath(path, button) {
     clearHighlight(); $('node-search').value = '';
@@ -449,7 +483,7 @@
     $('reference-layout').hidden = !guided(); $('reference-layout').disabled = !guided();
     if (guided()) $('layout-select').value = 'preset';
     else if ($('layout-select').value === 'preset') $('layout-select').value = 'cose';
-    clearHover();
+    clearHover(); state.stageColumns = [];
     if (state.cy) state.cy.destroy();
     state.cy = null; inspector(false); tab('details');
     $('node-search').value = ''; $('search-status').textContent = '输入名称可高亮匹配节点';
@@ -492,6 +526,8 @@
     state.cy.on('mousemove', 'node, edge', positionTooltip);
     state.cy.on('mouseout', 'node, edge', clearHover);
     state.cy.on('pan zoom drag', clearHover);
+    state.cy.on('pan zoom', positionStageLabels);
+    state.cy.on('position', 'node', positionStageLabels);
     $('detail-title').textContent = '点选一个节点'; $('detail-description').textContent = '点击节点、连线或左侧路径，查看文件中记录的属性。';
     $('detail-json').hidden = true; $('graph-tooltip').hidden = true;
     viewCopy(); applyFilters(); renderPaths(); diagnostics(); layout();
@@ -586,8 +622,11 @@
     bindTabs(['details', 'diagnostics'], tab); bindTabs(['paths', 'filters'], exploreTab);
     const resize = () => {
       if (!state.cy) return;
+      const size = $('cy').clientWidth + 'x' + $('cy').clientHeight;
       state.cy.resize();
-      if (state.compact !== compactView() && $('layout-select').value === 'preset') layout();
+      if (size !== state.canvasSize && focusView() && $('layout-select').value === 'preset' && !state.selectedPath && !$('node-search').value) layout();
+      else positionStageLabels();
+      state.canvasSize = size;
     };
     if (typeof ResizeObserver === 'function') new ResizeObserver(resize).observe($('cy'));
     window.addEventListener('resize', resize);
