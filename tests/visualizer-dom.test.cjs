@@ -11,7 +11,7 @@ const root = path.join(__dirname, '../visualizer');
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 const copy = () => JSON.parse(JSON.stringify(fixture));
 
-async function harness(example = 'synthetic', runBundle) {
+async function harness(example = 'synthetic', runBundle, styleEnabled = false) {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), { runScripts: 'outside-only', url: 'file:///InterpreterPLATO/visualizer/index.html' });
   const { window } = dom;
   const errors = [];
@@ -24,7 +24,7 @@ async function harness(example = 'synthetic', runBundle) {
   window.cytoscape = options => {
     // Load both the adapter and Cytoscape in the same DOM realm, as browsers do.
     const configuration = new window.Object();
-    Object.assign(configuration, options, { container: undefined, headless: true, styleEnabled: false });
+    Object.assign(configuration, options, { container: undefined, headless: true, styleEnabled });
     const cy = browserCytoscape(configuration);
     instances.push(cy); return cy;
   };
@@ -88,6 +88,8 @@ test('uploads stay local, malformed files do not replace the current record, and
     assert.match(h.document.getElementById('case-title').textContent, /<img/);
     assert.equal(h.document.getElementById('source-name').textContent, '<b>local.json</b>');
     assert.equal(h.document.querySelector('img'), null); assert.equal(h.document.querySelector('#source-name b'), null);
+    h.cy().nodes()[0].emit('mouseover');
+    assert.equal(h.document.querySelector('#graph-tooltip img'), null); assert.match(h.document.getElementById('graph-tooltip').textContent, /<img/);
     h.cy().nodes()[0].emit('tap'); assert.match(h.document.getElementById('detail-json').textContent, /<img/);
     await upload(h, '{invalid'); assert.equal(h.document.getElementById('error-banner').hidden, false);
     assert.match(h.document.getElementById('case-title').textContent, /<img/);
@@ -283,7 +285,7 @@ test('embedded run preserves actual statistics, complete graph, path types and u
   const { withRunFile } = require('./run-example-fixture.cjs');
   const { prepareRun } = require('../visualizer/prepare-run.cjs');
   const bundle = withRunFile(({ file }) => prepareRun(file));
-  const h = await harness('run', bundle);
+  const h = await harness('run', bundle, true);
   try {
     const get = id => h.document.getElementById(id), shown = item => !item.hasClass('filtered') && !item.hasClass('focus-hidden');
     assert.equal(get('example-select').value, 'run'); assert.equal(get('run-summary').hidden, false);
@@ -293,6 +295,7 @@ test('embedded run preserves actual statistics, complete graph, path types and u
     assert.match(get('run-metrics').textContent, /0\.8000/); assert.match(get('run-metrics').textContent, /1\.0000/);
     assert.match(get('run-metrics').textContent, /调用方提供/); assert.match(get('run-metrics').textContent, /12\.3457/);
     assert.equal(h.cy().nodes().filter(shown).length, 6); assert.equal(h.cy().edges().filter(shown).length, 4);
+    assert.ok(h.cy().nodes().filter(shown).every(node => node.style('label') !== ''));
     assert.equal(get('case-guide').hidden, true); assert.equal(get('run-guide').hidden, false);
     assert.equal(h.document.querySelectorAll('.path-button').length, 2);
     const terminal = h.cy().nodes('.run-context');
@@ -304,7 +307,22 @@ test('embedded run preserves actual statistics, complete graph, path types and u
     const ids = h.cy().elements().map(item => item.id());
     get('view-full').click(); assert.equal(h.cy().nodes().filter(shown).length, 9); assert.equal(h.cy().edges().filter(shown).length, 8);
     assert.equal(shown(terminal), true);
+    assert.ok(h.cy().nodes().every(node => node.style('label') === ''));
+    h.document.querySelector('.path-button').click();
+    const selected = h.cy().elements('.highlighted').map(item => item.id());
+    const hovered = h.cy().nodes().filter(node => node.data('originalId') === 'gene:A0');
+    hovered.emit('mouseover');
+    assert.equal(get('graph-tooltip').hidden, false); assert.match(get('graph-tooltip').textContent, /A0/);
+    assert.match(get('graph-tooltip').textContent, /3 个可见相邻节点 · 3 条连接/);
+    assert.deepEqual(h.cy().edges('.hover-connection').map(edge => edge.id()).sort(), hovered.connectedEdges().filter(shown).map(edge => edge.id()).sort());
+    hovered.emit('mouseout'); assert.equal(get('graph-tooltip').hidden, true);
+    assert.equal(h.cy().elements('.hover-neighbor, .hover-connection, .hovered').length, 0);
+    assert.deepEqual(h.cy().elements('.highlighted').map(item => item.id()), selected);
+    const memberships = h.document.querySelector('[data-edge-group="membership"]'); memberships.checked = false; memberships.dispatchEvent(new h.window.Event('change'));
+    hovered.emit('mouseover'); assert.match(get('graph-tooltip').textContent, /2 个可见相邻节点 · 2 条连接/);
+    assert.ok(h.cy().edges('.hover-connection').every(shown));
     get('view-focus').click(); assert.deepEqual(h.cy().elements().map(item => item.id()), ids);
+    assert.equal(get('graph-tooltip').hidden, true); assert.ok(h.cy().nodes().filter(shown).every(node => node.style('label') !== ''));
     get('show-run-details').click(); assert.match(get('detail-json').textContent, /false/); assert.match(get('detail-json').textContent, new RegExp(bundle.source.sha256));
     const payload = JSON.parse(JSON.stringify(bundle.payload)); payload.metadata = { ...bundle.presentation };
     await upload(h, payload);
