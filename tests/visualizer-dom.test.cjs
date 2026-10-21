@@ -351,8 +351,9 @@ test('run suite switches case payloads and never promotes invalid statistics or 
   const h = await harness('run', bundles);
   try {
     const get = id => h.document.getElementById(id);
-    assert.equal(get('run-suite').hidden, false); assert.equal(h.document.querySelectorAll('[data-run-index]').length, 3);
-    h.document.querySelector('[data-run-index="1"]').click();
+    const selectRun = value => { get('example-select').value = value; get('example-select').dispatchEvent(new h.window.Event('change')); };
+    assert.deepEqual([...get('example-select').options].filter(option => option.value.startsWith('run')).map(option => option.value), ['run', 'run:1', 'run:2']);
+    selectRun('run:1');
     assert.equal(get('example-select').value, 'run:1'); assert.match(get('case-meta').textContent, /INVALID-CELL/);
     assert.match(get('run-verdict').textContent, /不可评估/); assert.doesNotMatch(get('run-metrics').textContent, /0\.0000/);
     assert.match(get('run-metrics').textContent, /不可评估/);
@@ -360,13 +361,12 @@ test('run suite switches case payloads and never promotes invalid statistics or 
     assert.equal(h.cy().edges('.highlighted').length, 1);
     assert.equal(h.cy().edges('.highlighted').filter(edge => edge.data('category') === 'ppi').length, 0);
     assert.match(get('search-status').textContent, /零跳/);
-    get('example-select').value = 'run:2'; get('example-select').dispatchEvent(new h.window.Event('change'));
+    selectRun('run:2');
     assert.match(get('run-verdict').textContent, /仅一侧/); assert.match(get('run-rule').textContent, /有限/);
     assert.match(get('run-metrics').textContent, /0\.0070/);
-    h.document.querySelector('[data-run-index="0"]').click();
+    selectRun('run');
     assert.match(get('run-verdict').textContent, /未获显著支持/); assert.match(get('run-metrics').textContent, /0\.8000/);
-    assert.equal(h.document.querySelector('[data-run-index="0"]').getAttribute('aria-pressed'), 'true');
-    assert.equal(h.document.querySelector('[data-run-index="1"]').getAttribute('aria-pressed'), 'false');
+    assert.equal(get('example-select').value, 'run');
     const drawn = []; let pendingImage;
     h.cy().png = () => 'data:image/png;base64,test';
     h.window.Image = class { constructor() { pendingImage = this; this.width = 500; this.height = 300; } set src(value) {} };
@@ -374,7 +374,7 @@ test('run suite switches case payloads and never promotes invalid statistics or 
     h.window.HTMLCanvasElement.prototype.toBlob = callback => callback(new h.window.Blob(['test']));
     h.window.URL.createObjectURL = () => 'blob:local-export-test'; h.window.URL.revokeObjectURL = () => {};
     h.window.HTMLAnchorElement.prototype.click = () => {};
-    get('export-png').click(); h.document.querySelector('[data-run-index="1"]').click(); pendingImage.onload();
+    get('export-png').click(); selectRun('run:1'); pendingImage.onload();
     assert.match(drawn.join(' '), /实际运行 TEST-CASE/);
     assert.doesNotMatch(drawn.join(' '), /TEST-INVALID/);
   } finally { h.close(); }

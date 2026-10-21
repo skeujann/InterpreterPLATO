@@ -83,8 +83,6 @@
   }
   function renderRunSummary() {
     $('run-summary').hidden = !state.runExample; $('run-guide').hidden = !state.runExample;
-    $('run-suite').hidden = !state.runExample || RUNS.length < 2;
-    document.querySelectorAll('[data-run-index]').forEach(button => button.setAttribute('aria-pressed', String(state.runExample && RUNS[Number(button.dataset.runIndex)].payload === state.model.payload)));
     if (!state.runExample) return;
     const p = state.model.payload, stats = p.network_statistics || {}, source = window.InterpreterRunExample.source;
     const evaluated = stats.valid === true;
@@ -535,16 +533,11 @@
   function boot() {
     if (!G || !window.InterpreterReference || !window.InterpreterExample || typeof window.cytoscape !== 'function') { error('查看器资源未加载完整。请保留目录内的资源文件，或使用打包后的单文件 HTML。'); return; }
     if (RUNS.length) {
-      const buttons = $('run-case-list'); buttons.replaceChildren();
       RUNS.forEach((run, index) => {
         if (run.schema !== 'interpreterplato-local-run/v1') throw new Error('Unknown local run bundle schema');
-        const value = index ? 'run:' + index : 'run', p = run.payload, quality = p.network_statistics && p.network_statistics.quality_status;
+        const value = index ? 'run:' + index : 'run';
         $('example-select').insertBefore(new Option('实际运行 · ' + run.source.case_id, value), $('example-select').options[index]);
-        const button = element('button', 'run-case-button'); button.type = 'button'; button.dataset.runIndex = String(index); button.setAttribute('aria-pressed', 'false');
-        button.append(element('small', '', run.source.case_id), element('strong', '', p.drug1_name + ' + ' + p.drug2_name), element('span', '', (p.cell_line || '未记录细胞系') + ' · 统计质量' + (QUALITY[quality] || quality || '未记录')));
-        button.addEventListener('click', () => { $('example-select').value = value; loadBuiltin(); }); buttons.appendChild(button);
       });
-      $('run-suite-count').textContent = RUNS.length + ' 个已完成的开发测试实例';
       $('example-select').value = 'run';
     }
     $('show-run-details').addEventListener('click', showRunDetails);
