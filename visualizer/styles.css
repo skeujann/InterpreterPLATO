@@ -52,6 +52,7 @@ button, label.button, select { transition: background-color 140ms, color 140ms, 
 .icon-button:hover { color: #253416; background: #e9eedf; }
 .icon-button.active { background: #eaf0dd; color: #4d652c; }
 .skip-link { position: fixed; top: -80px; left: 24px; z-index: 100; padding: 12px 20px; background: var(--accent); color: var(--ink); border-radius: 4px; }
+.skip-link:not(:focus) { clip-path: inset(50%); }
 .skip-link:focus { top: 12px; }
 main { max-width: 1880px; margin: 0 auto; padding: 25px 36px 0; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 40px; padding: 0 2px 25px; }
