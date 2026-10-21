@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const LIMITS = Object.freeze({ nodes: 5000, edges: 20000, results: 100, fileBytes: 20 * 1024 * 1024 });
-  const COLORS = Object.freeze({ ppi: '#278b8b', target: '#c48638', disease: '#9468bd', pathway: '#ac94c6', report: '#a2aabc', hypothesis: '#c47587', other: '#8e99aa' });
+  const COLORS = Object.freeze({ ppi: '#428676', target: '#b18c55', disease: '#9376ae', pathway: '#ac94c6', report: '#90978b', hypothesis: '#bc7588', other: '#8d9687' });
   const NODE_TYPES = new Set(['drug', 'gene', 'pathway', 'disease_module']);
   const REPORT_TYPES = new Set(['supports_prediction', 'summarizes_combination_member', 'tests_sensitivity_of', 'changes_mechanism']);
   const TARGET_TYPES = new Set(['PLATO_predicted_target', 'known_target', 'known_and_predicted_target']);
@@ -118,14 +118,22 @@
     return base;
   }
   const styles = [
-    { selector: 'node', style: { 'background-color': '#cad5df', 'border-color': '#ffffff', 'border-width': 2, label: 'data(label)', color: '#34465c', 'font-size': 12, 'font-family': 'Segoe UI, Microsoft YaHei, Arial, sans-serif', 'text-valign': 'bottom', 'text-margin-y': 9, 'text-wrap': 'wrap', 'text-max-width': 128, width: 32, height: 32 } },
-    { selector: 'node.drug', style: { shape: 'round-rectangle', width: 116, height: 42, 'background-color': '#3b5b80', color: '#ffffff', 'text-valign': 'center', 'text-margin-y': 0, 'font-weight': 'bold', 'font-size': 12 } },
-    { selector: 'node.gene.arm-left', style: { 'background-color': '#60a9a5' } },
-    { selector: 'node.gene.arm-right', style: { 'background-color': '#dbad68' } },
+    { selector: 'node', style: { 'background-color': '#b6c5b0', 'border-color': '#fbfcf6', 'border-width': 2, label: 'data(label)', color: '#394331', 'font-size': 12, 'font-family': 'Segoe UI, Microsoft YaHei, Arial, sans-serif', 'text-valign': 'bottom', 'text-margin-y': 9, 'text-wrap': 'wrap', 'text-max-width': 128, width: 32, height: 32 } },
+    { selector: 'node.drug', style: { shape: 'round-rectangle', width: 116, height: 42, 'background-color': '#30392a', color: '#f8fbee', 'text-valign': 'center', 'text-margin-y': 0, 'font-weight': 'bold', 'font-size': 12 } },
+    { selector: 'node.gene.arm-left', style: { 'background-color': '#8eb29c' } },
+    { selector: 'node.gene.arm-right', style: { 'background-color': '#c1cfa1' } },
     { selector: 'node.gene.arm-both', style: { 'background-color': '#a58ac4', 'border-color': '#725695', 'border-width': 3 } },
     { selector: 'node.disease_module', style: { shape: 'diamond', width: 55, height: 55, 'background-color': '#b496d2' } },
     { selector: 'node.pathway', style: { shape: 'hexagon', width: 43, height: 43, 'background-color': '#d5c5e8' } },
     { selector: 'node.report', style: { shape: 'round-rectangle', width: 30, height: 26, 'background-color': '#dbe0e8', 'border-style': 'dashed' } },
+    { selector: 'node.reference-drug', style: { width: 164, height: 60, 'font-size': 14, 'font-weight': 500, 'background-color': '#2c3426', 'border-width': 0 } },
+    { selector: 'node.reference-target', style: { shape: 'round-rectangle', width: 112, height: 70, label: 'data(displayLabel)', 'background-color': '#edf1e1', 'border-color': '#b7c59e', 'border-width': 1.5, 'font-size': 14, 'font-weight': 500, 'text-valign': 'center', 'text-margin-y': 0, 'line-height': 1.5, color: '#394b29' } },
+    { selector: 'node.reference-anchor', style: { shape: 'ellipse', width: 142, height: 142, 'background-color': '#d3ef65', 'border-color': '#a9c440', 'border-width': 1.5, 'font-size': 30, 'font-weight': 600, 'text-valign': 'center', 'text-margin-y': 0, color: '#2b3911' } },
+    { selector: 'node.reference-context', style: { shape: 'round-rectangle', width: 208, height: 94, label: 'data(displayLabel)', 'background-color': '#eee6f5', 'border-color': '#b49acb', 'border-width': 1.5, 'font-size': 15, 'font-weight': 500, 'text-valign': 'center', 'text-margin-y': 0, 'text-max-width': 195, 'line-height': 1.7, color: '#674f7c' } },
+    { selector: 'node.reference-drug.compact-reference', style: { width: 142, height: 52, 'font-size': 15 } },
+    { selector: 'node.reference-target.compact-reference', style: { width: 100, height: 64, 'font-size': 14 } },
+    { selector: 'node.reference-anchor.compact-reference', style: { width: 124, height: 124, 'font-size': 29 } },
+    { selector: 'node.reference-context.compact-reference', style: { width: 218, height: 82, 'font-size': 16 } },
     { selector: 'edge', style: { width: 1.5, 'line-color': '#a2aabc', 'curve-style': 'bezier', 'source-arrow-shape': 'none', 'target-arrow-shape': 'none', 'mid-source-arrow-shape': 'none', 'mid-target-arrow-shape': 'none', opacity: 0.8 } },
     { selector: 'edge.ppi', style: { width: 2.3, 'line-color': COLORS.ppi, 'line-style': 'solid' } },
     { selector: 'edge.target', style: { 'line-color': COLORS.target, 'line-style': 'dashed' } },
@@ -135,9 +143,10 @@
     { selector: 'edge.hypothesis', style: { 'line-color': COLORS.hypothesis, 'line-style': 'dashed' } },
     { selector: 'edge.other', style: { 'line-color': COLORS.other, 'line-style': 'dashed', opacity: 0.55 } },
     { selector: '.dimmed', style: { opacity: 0.13, 'text-opacity': 0.25 } },
-    { selector: 'node.highlighted', style: { 'border-color': '#1a73e8', 'border-width': 4, 'z-index': 20 } },
-    { selector: 'edge.highlighted', style: { 'line-color': '#1a73e8', width: 3.5, opacity: 1, 'z-index': 15 } },
+    { selector: 'node.highlighted', style: { 'border-color': '#698a2e', 'border-width': 4, 'z-index': 20 } },
+    { selector: 'edge.highlighted', style: { width: 4, opacity: 1, 'z-index': 15 } },
     { selector: '.filtered', style: { display: 'none' } },
+    { selector: '.focus-hidden', style: { display: 'none' } },
   ];
   return Object.freeze({ LIMITS, COLORS, records, build, styles, relationship, isSynthetic, modeLabel });
 });

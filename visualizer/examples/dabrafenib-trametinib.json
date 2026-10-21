@@ -17,48 +17,48 @@
     "selection_policy": "Seven preselected canonical human UniProt accessions related to MAPK; retain all unique non-self, same-species INTERACTION pairs with exact accession matches. Isoforms are not collapsed into canonical accessions. Paths are editorially selected existing-edge routes, not an exhaustive search.",
     "visualization_positions": {
       "drug:Dabrafenib": [
-        -370,
-        -60
+        -320,
+        -150
       ],
       "drug:Trametinib": [
-        290,
-        -140
-      ],
-      "gene:BRAF": [
-        -170,
-        -60
+        -320,
+        40
       ],
       "gene:MAP2K1": [
-        80,
-        -60
+        0,
+        -30
       ],
       "gene:MAP2K2": [
-        80,
-        70
+        0,
+        110
+      ],
+      "gene:BRAF": [
+        320,
+        -50
       ],
       "gene:RAF1": [
-        -170,
-        160
+        100,
+        -230
       ],
       "gene:KSR1": [
-        0,
-        160
+        -120,
+        260
       ],
       "gene:MAPK1": [
-        335,
-        -35
+        130,
+        260
       ],
       "gene:MAPK3": [
-        335,
-        125
+        330,
+        260
       ],
       "pathway:R-HSA-5673001": [
-        500,
-        245
+        560,
+        240
       ],
       "disease_module:literature-context": [
-        -370,
-        200
+        665,
+        -50
       ]
     },
     "references": [
@@ -103,7 +103,20 @@
         "source": "https://reactome.org/license",
         "modifications": "Selected seven participant identifiers; not a database dump or copied diagram."
       }
-    ]
+    ],
+    "focus_view": {
+      "endpoint": "disease_module:literature-context",
+      "nodes": [
+        "drug:Dabrafenib",
+        "drug:Trametinib",
+        "gene:MAP2K1",
+        "gene:MAP2K2",
+        "gene:BRAF",
+        "disease_module:literature-context"
+      ],
+      "semantics": "Reading order only: drugs, targets and PPI, BRAF, disease-module literature context. The terminal node is a single-gene literature annotation, not a computed disease gene set. Position and emphasis do not imply shared direct targeting, biological direction or causality.",
+      "anchor": "gene:BRAF"
+    }
   },
   "drug1_targets": {
     "targets": [
