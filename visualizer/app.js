@@ -22,11 +22,45 @@
     const result = JSON.stringify(value, null, 2);
     return result.length > limit ? result.slice(0, limit) + '\n…（界面截断；完整属性保留在输入文件）' : result;
   }
-  function tab(name) {
-    for (const target of ['details', 'diagnostics']) {
+  function activateTab(name, names) {
+    for (const target of names) {
       $('tab-' + target).setAttribute('aria-selected', String(name === target));
+      $('tab-' + target).tabIndex = name === target ? 0 : -1;
       $(target + '-panel').hidden = name !== target;
     }
+  }
+  function tab(name) { activateTab(name, ['details', 'diagnostics']); }
+  function exploreTab(name) { activateTab(name, ['paths', 'filters']); }
+  function bindTabs(names, activate) {
+    names.forEach((name, index) => {
+      const button = $('tab-' + name);
+      button.addEventListener('click', () => activate(name));
+      button.addEventListener('keydown', event => {
+        const target = event.key === 'ArrowRight' ? (index + 1) % names.length
+          : event.key === 'ArrowLeft' ? (index + names.length - 1) % names.length
+          : event.key === 'Home' ? 0 : event.key === 'End' ? names.length - 1 : -1;
+        if (target < 0) return;
+        event.preventDefault(); activate(names[target]); $('tab-' + names[target]).focus();
+      });
+    });
+  }
+  function inspector(open) {
+    $('inspector-panel').hidden = !open;
+    $('explorer-body').classList.toggle('inspector-open', open);
+    $('toggle-inspector').setAttribute('aria-expanded', String(open));
+    if (state.cy) state.cy.resize();
+  }
+  function sidebar(open) {
+    $('explore-panel').hidden = !open;
+    $('explorer-body').classList.toggle('sidebar-collapsed', !open);
+    $('toggle-sidebar').setAttribute('aria-expanded', String(open));
+    $('toggle-sidebar').classList.toggle('active', open);
+    if (state.cy) state.cy.resize();
+  }
+  function zoom(factor) {
+    if (!state.cy) return;
+    state.cy.zoom({ level: Math.max(state.cy.minZoom(), Math.min(state.cy.maxZoom(), state.cy.zoom() * factor)),
+      renderedPosition: { x: $('cy').clientWidth / 2, y: $('cy').clientHeight / 2 } });
   }
   function inspect(item) {
     const data = item.data();
@@ -40,7 +74,7 @@
   function clearHighlight() {
     state.selectedPath = null;
     if (state.cy) state.cy.elements().removeClass('dimmed highlighted');
-    document.querySelectorAll('.path-button').forEach(button => button.classList.remove('selected'));
+    document.querySelectorAll('.path-button').forEach(button => { button.classList.remove('selected'); button.setAttribute('aria-pressed', 'false'); });
   }
   function renderCounts() {
     if (!state.cy) return;
@@ -50,6 +84,7 @@
     $('graph-empty').hidden = visible.length > 0;
     $('graph-empty').querySelector('strong').textContent = state.cy.nodes().length ? '当前筛选未显示任何节点' : '该记录没有可展示的证据图';
     $('export-png').disabled = !visible.length;
+    for (const id of ['zoom-in', 'zoom-out', 'fit-graph']) $(id).disabled = !visible.length;
   }
   function applyFilters() {
     if (!state.cy) return;
@@ -87,24 +122,29 @@
     state.cy.elements().addClass('dimmed');
     const selected = state.cy.elements().filter(item => ids.has(item.id()));
     selected.removeClass('dimmed').addClass('highlighted');
-    button.classList.add('selected');
+    button.classList.add('selected'); button.setAttribute('aria-pressed', 'true');
     const hidden = selected.filter(item => item.hasClass('filtered')).length;
     $('search-status').textContent = path.zeroHop ? '零跳记录：没有 PPI 边，也不会补画自环。' : '高亮 ' + path.edgeIds.length + ' 条文件中已有的 PPI 边。';
     if (hidden) $('search-status').textContent += ' 当前筛选隐藏了部分路径元素。';
     $('detail-title').textContent = path.kind === 'cross' ? '双药靶点连接' : '靶点—疾病路径';
     $('detail-description').textContent = path.zeroHop ? '零跳仅表示共享节点或集合成员关系。' : '路径仅用于高亮已记录的边，不增添网络关系。';
-    $('detail-json').textContent = pretty(path.raw, 6500); $('detail-json').hidden = false; tab('details');
+    $('detail-json').textContent = pretty(path.raw, 6500); $('detail-json').hidden = false; tab('details'); inspector(true);
   }
   function renderPaths() {
     const list = $('path-list'); list.replaceChildren();
+    $('path-count').textContent = String(state.model.paths.length);
     if (!state.model.paths.length) { list.appendChild(element('p', 'small muted', '该记录未包含可展示的路径。')); return; }
     for (const [kind, title] of [['cross', '双药靶点连接'], ['disease', '靶点—疾病路径']]) {
       const paths = state.model.paths.filter(path => path.kind === kind);
       if (!paths.length) continue;
       list.appendChild(element('div', 'path-group-label', title + ' · ' + paths.length));
-      for (const path of paths) {
+      for (const [index, path] of paths.entries()) {
         const button = element('button', 'path-button'); button.type = 'button'; button.disabled = !path.valid;
-        button.appendChild(element('strong', '', path.raw.drug || title));
+        button.setAttribute('aria-pressed', 'false');
+        const heading = element('span', 'path-heading');
+        heading.appendChild(element('span', 'path-number', String(index + 1).padStart(2, '0')));
+        heading.appendChild(element('strong', '', path.raw.drug || '路径 ' + (index + 1)));
+        button.appendChild(heading);
         button.appendChild(element('span', 'path-route', path.genes.join(' — ')));
         if (path.zeroHop) button.appendChild(element('span', 'path-zero', kind === 'cross' ? '共享节点零跳 · 0 条 PPI' : '疾病集合成员零跳 · 0 条 PPI'));
         else button.appendChild(element('span', 'path-zero', (path.genes.length - 1) + ' 跳 · 仅高亮文件中已有的边'));
@@ -120,6 +160,8 @@
     if (invalid) container.appendChild(element('p', 'diagnostic-item', invalid + ' 条路径与证据图不一致，已禁用高亮；没有自动补边。'));
     const payload = state.model.payload;
     if (payload.error) container.appendChild(element('p', 'diagnostic-item', '上游错误：' + String(payload.error)));
+    $('diagnostic-count').textContent = String(container.children.length);
+    $('diagnostic-count').hidden = !container.children.length;
     $('diagnostic-json').textContent = pretty({
       network_connectivity: payload.network_connectivity || (payload.local_evidence && payload.local_evidence.connectivity) || { status: 'not_recorded' },
       warning_flags: payload.warning_flags || [],
@@ -131,6 +173,7 @@
     const payload = state.rows[index], model = suppliedModel || G.build(payload);
     state.model = model; state.selectedPath = null;
     if (state.cy) state.cy.destroy();
+    state.cy = null; inspector(false); tab('details');
     $('node-search').value = ''; $('search-status').textContent = '输入名称可高亮匹配节点';
     $('case-title').textContent = (payload.drug1_name || payload.drug1 || '未标注药物 A') + ' + ' + (payload.drug2_name || payload.drug2 || '未标注药物 B');
     $('case-meta').textContent = (payload.cell_line ? payload.cell_line + ' · ' : '') + '记录 ' + (index + 1) + ' / ' + state.rows.length;
@@ -140,20 +183,20 @@
     $('mode-title').textContent = concept ? '概念示意（非真实计算结果）' : model.mode;
     $('mode-description').textContent = concept ? '全部节点与关系为合成测试数据，不用于科研证据。' : '只展示输入文件记录的关系，不独立核验原始 PPI，不推导因果或机制真实性。';
     state.cy = window.cytoscape({ container: $('cy'), elements: model.elements, style: G.styles, layout: { name: 'grid', padding: 40 }, minZoom: 0.12, maxZoom: 3.5 });
-    state.cy.on('tap', 'node, edge', event => { inspect(event.target); tab('details'); });
+    state.cy.on('tap', 'node, edge', event => { inspect(event.target); tab('details'); inspector(true); });
     state.cy.on('mouseover', 'node, edge', event => {
       const item = event.target; inspect(item);
       const position = event.renderedPosition || (item.isNode() ? item.renderedPosition() : item.renderedMidpoint());
       $('graph-tooltip').textContent = item.isNode() ? item.data('label') + '\n' + (GROUP_LABELS[item.data('type')] || item.data('type')) : EDGE_LABELS[item.data('category')] + '\n' + item.data('type');
-      $('graph-tooltip').style.left = Math.max(8, Math.min(position.x + 16, $('cy').clientWidth - 220)) + 'px';
-      $('graph-tooltip').style.top = Math.max(60, Math.min(position.y + 65, $('cy').clientHeight + 15)) + 'px';
+      $('graph-tooltip').style.left = Math.max(8, Math.min(position.x + 16, $('cy').clientWidth - 240)) + 'px';
+      $('graph-tooltip').style.top = Math.max(8, Math.min(position.y + 18, $('cy').clientHeight - 90)) + 'px';
       $('graph-tooltip').hidden = false;
     });
     state.cy.on('mouseout', 'node, edge', () => { $('graph-tooltip').hidden = true; });
-    $('detail-title').textContent = '探索证据图'; $('detail-description').textContent = '悬停或点击节点与边，查看 JSON 中记录的类型、来源及属性。';
+    $('detail-title').textContent = '点选一个节点'; $('detail-description').textContent = '点击节点、连线或左侧路径，查看文件中记录的属性。';
     $('detail-json').hidden = true; $('graph-tooltip').hidden = true;
     applyFilters(); renderPaths(); diagnostics(); layout();
-    if (!model.nodeCount) tab('diagnostics');
+    if (!model.nodeCount) { tab('diagnostics'); inspector(true); }
   }
   function load(input, name) {
     const rows = G.records(input); G.build(rows[0]);
@@ -203,6 +246,12 @@
     });
     document.querySelectorAll('[data-node-group], [data-edge-group]').forEach(input => input.addEventListener('change', applyFilters));
     $('layout-select').addEventListener('change', layout);
+    $('toggle-sidebar').addEventListener('click', () => sidebar($('explore-panel').hidden));
+    $('toggle-inspector').addEventListener('click', () => inspector($('inspector-panel').hidden));
+    $('close-inspector').addEventListener('click', () => { inspector(false); $('toggle-inspector').focus(); });
+    $('inspector-panel').addEventListener('keydown', event => { if (event.key === 'Escape') { inspector(false); $('toggle-inspector').focus(); } });
+    $('zoom-in').addEventListener('click', () => zoom(1.25));
+    $('zoom-out').addEventListener('click', () => zoom(0.8));
     $('fit-graph').addEventListener('click', () => state.cy && state.cy.fit(state.cy.elements().filter(item => !item.hasClass('filtered')), 45));
     $('clear-selection').addEventListener('click', () => { clearHighlight(); $('node-search').value = ''; $('search-status').textContent = '已取消高亮'; });
     $('node-search').addEventListener('input', () => {
@@ -215,13 +264,13 @@
     $('node-search').addEventListener('keydown', event => {
       if (event.key !== 'Enter' || !state.cy) return;
       const matches = state.cy.nodes('.highlighted').filter(node => !node.hasClass('filtered'));
-      if (matches.length) { inspect(matches[0]); tab('details'); state.cy.fit(matches, 80); }
+      if (matches.length) { inspect(matches[0]); tab('details'); inspector(true); state.cy.fit(matches, 80); }
     });
     $('export-png').addEventListener('click', () => exportPng().catch(exception => error(exception.message)));
     document.addEventListener('dragover', event => { event.preventDefault(); });
     document.addEventListener('drop', event => { event.preventDefault(); if (event.dataTransfer.files.length !== 1) error('请每次拖入一个解释 JSON 文件。'); else openFile(event.dataTransfer.files[0]); });
     document.querySelectorAll('label.button[for="file-input"]').forEach(label => { label.tabIndex = 0; label.setAttribute('role', 'button'); label.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); $('file-input').click(); } }); });
-    $('tab-details').addEventListener('click', () => tab('details')); $('tab-diagnostics').addEventListener('click', () => tab('diagnostics'));
+    bindTabs(['details', 'diagnostics'], tab); bindTabs(['paths', 'filters'], exploreTab);
     const resize = () => { if (state.cy) { state.cy.resize(); } };
     if (typeof ResizeObserver === 'function') new ResizeObserver(resize).observe($('cy'));
     window.addEventListener('resize', resize);

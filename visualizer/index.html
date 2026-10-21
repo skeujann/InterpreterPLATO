@@ -3,64 +3,102 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="在浏览器本地查看 InterpreterPLATO 解释 JSON 中的证据图、路径与诊断。">
+  <meta name="description" content="在浏览器本地探索 InterpreterPLATO 解释 JSON 中的证据图、路径与诊断。">
   <title>InterpreterPLATO Visualizer</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-network" viewBox="0 0 24 24"><path d="m7 7 10 10M7 17 17 7M7 7h10M7 17h10"/><circle cx="5" cy="5" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v13m-5-5 5 5 5-5M4 16v5h16v-5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.2"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><rect x="8" y="8" width="8" height="8" rx="1"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-example" viewBox="0 0 24 24"><path d="M9 3H5v18h14V7l-4-4H9Zm5 0v5h5M8 12h8m-8 4h5"/></symbol>
+  </defs></svg>
+
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">IP</span><div><strong>InterpreterPLATO</strong><span class="brand-subtitle">VISUALIZER</span></div></div>
-    <div class="local-badge"><span aria-hidden="true"></span> 文件仅在本地浏览器读取</div>
-    <label class="button primary upload-button" for="file-input">打开解释 JSON</label>
+    <a class="skip-link" href="#cy">跳转到网络图</a>
+    <div class="brand">
+      <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-network"/></svg></span>
+      <strong>InterpreterPLATO</strong><span class="brand-subtitle">Visualizer</span>
+    </div>
+    <span class="local-badge"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>本地处理</span>
+    <button id="load-example" class="button text-button"><svg class="icon" aria-hidden="true"><use href="#i-example"/></svg>加载示例</button>
+    <label class="button primary upload-button" for="file-input"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>打开 JSON</label>
     <input id="file-input" type="file" accept=".json,application/json" hidden>
   </header>
 
   <main>
-    <section class="intro">
-      <div><div class="eyebrow">EVIDENCE EXPLORER</div><h1>交互式机制解释图</h1><p>从结果文件探索双药靶点、PPI 连接与疾病路径。</p></div>
-      <div class="intro-actions"><button id="load-example" class="button secondary">查看合成示例</button><button id="download-example" class="text-button">下载示例 JSON ↗</button></div>
-    </section>
-
-    <div id="mode-banner" class="mode-banner synthetic" role="status"><strong id="mode-title">概念示意（非真实计算结果）</strong><span id="mode-description">全部关系来自明确标注的合成测试数据，不能作为科研证据。</span></div>
+    <div class="page-heading">
+      <div><h1>机制网络</h1><p>从解释文件，探索靶点之间的连接。</p></div>
+      <button id="download-example" class="button text-button"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>示例 JSON</button>
+    </div>
     <div id="error-banner" class="error-banner" role="alert" hidden></div>
 
     <section class="workspace" aria-label="交互式证据图工作区">
-      <aside class="left-panel">
-        <section class="panel-section case-section"><div class="section-heading">当前解释 <span class="tiny-label">LOCAL JSON</span></div><h2 id="case-title">尚未读取文件</h2><p id="case-meta" class="muted"></p><label id="result-label" class="field-label" for="result-select" hidden>批次记录</label><select id="result-select" hidden></select><div id="source-name" class="file-name"></div></section>
+      <div class="case-bar">
+        <div class="case-identity"><span class="case-icon"><svg class="icon" aria-hidden="true"><use href="#i-network"/></svg></span><div><span class="field-label">当前解释</span><h2 id="case-title">尚未读取文件</h2><p id="case-meta" class="muted"></p></div></div>
+        <div class="case-source"><label id="result-label" class="sr-only" for="result-select" hidden>批次记录</label><select id="result-select" hidden></select><div class="source-chip"><span class="status-dot"></span><span id="source-name" class="file-name"></span></div></div>
+      </div>
+      <div id="mode-banner" class="mode-banner synthetic" role="status"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><div><strong id="mode-title">概念示意（非真实计算结果）</strong><span id="mode-description">合成测试数据，不用于科研证据。</span></div></div>
 
-        <section class="panel-section"><label class="section-heading" for="node-search">定位节点</label><div class="search-box"><span aria-hidden="true">⌕</span><input id="node-search" type="search" placeholder="基因、药物或节点 ID…" autocomplete="off"></div><p id="search-status" class="small muted" aria-live="polite">输入名称可高亮匹配节点</p></section>
+      <div id="explorer-body" class="explorer-body">
+        <aside id="explore-panel" class="left-panel" aria-label="路径与筛选">
+          <div class="search-area"><label class="search-box" for="node-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input id="node-search" type="search" placeholder="搜索节点" aria-label="搜索基因、药物或节点 ID" autocomplete="off"></label><p id="search-status" class="search-status" aria-live="polite">输入名称可高亮匹配节点</p></div>
+          <div class="explore-tabs" role="tablist" aria-label="探索选项"><button id="tab-paths" role="tab" aria-selected="true" aria-controls="paths-panel">路径<span id="path-count" class="count-badge">0</span></button><button id="tab-filters" role="tab" aria-selected="false" aria-controls="filters-panel" tabindex="-1">筛选</button></div>
+          <section id="paths-panel" class="paths-section" role="tabpanel" aria-labelledby="tab-paths"><div class="section-heading"><span>已记录路径</span><button id="clear-selection" class="inline-button">清除高亮</button></div><div id="path-list" class="path-list"></div><p class="panel-hint">选择路径，在图中查看已有 PPI 连接。</p></section>
+          <section id="filters-panel" class="filter-section" role="tabpanel" aria-labelledby="tab-filters" hidden>
+            <h3 class="section-heading">节点类型</h3>
+            <div class="filter-grid">
+              <label><input type="checkbox" data-node-group="drug" checked><span class="node-key drug-key"></span>药物</label>
+              <label><input type="checkbox" data-node-group="gene" checked><span class="node-key gene-key"></span>基因／蛋白</label>
+              <label><input type="checkbox" data-node-group="disease_module" checked><span class="node-key disease-key"></span>疾病集合</label>
+              <label><input type="checkbox" data-node-group="pathway" checked><span class="node-key pathway-key"></span>通路集合</label>
+              <label><input type="checkbox" data-node-group="report"><span class="node-key report-node-key"></span>证据与报告结构</label>
+            </div>
+            <h3 class="section-heading edge-heading">关系类型</h3>
+            <div class="edge-filters">
+              <label><input type="checkbox" data-edge-group="ppi" checked><span class="edge-key ppi-key"></span>PPI 连接 · 无方向</label>
+              <label><input type="checkbox" data-edge-group="target" checked><span class="edge-key target-key"></span>候选靶点关联</label>
+              <label><input type="checkbox" data-edge-group="membership" checked><span class="edge-key membership-key"></span>疾病／通路归属</label>
+              <label><input type="checkbox" data-edge-group="report"><span class="edge-key report-key"></span>报告、假说及未分类</label>
+            </div>
+            <p class="panel-hint">筛选仅改变显示，不修改输入文件。</p>
+          </section>
+        </aside>
 
-        <section class="panel-section"><div class="section-heading">显示范围</div><div class="filter-grid">
-          <label><input type="checkbox" data-node-group="drug" checked><span class="node-key drug-key"></span>药物</label>
-          <label><input type="checkbox" data-node-group="gene" checked><span class="node-key gene-key"></span>基因</label>
-          <label><input type="checkbox" data-node-group="disease_module" checked><span class="node-key disease-key"></span>疾病集合</label>
-          <label><input type="checkbox" data-node-group="pathway" checked><span class="node-key pathway-key"></span>通路集合</label>
-          <label class="wide-filter"><input type="checkbox" data-node-group="report">其他／证据与报告结构节点</label>
-        </div><div class="edge-filters">
-          <label><input type="checkbox" data-edge-group="ppi" checked><span class="edge-key ppi-key"></span>PPI 连接（无方向）</label>
-          <label><input type="checkbox" data-edge-group="target" checked><span class="edge-key target-key"></span>候选靶点关联</label>
-          <label><input type="checkbox" data-edge-group="membership" checked><span class="edge-key membership-key"></span>疾病／通路集合归属</label>
-          <label><input type="checkbox" data-edge-group="report"><span class="edge-key report-key"></span>报告／假说／未分类关系</label>
-        </div></section>
+        <section class="graph-panel" aria-label="网络画布">
+          <div class="graph-toolbar">
+            <div class="toolbar-start"><button id="toggle-sidebar" class="icon-button active" aria-label="路径与筛选" title="展开或收起路径与筛选" aria-expanded="true" aria-controls="explore-panel"><svg class="icon" aria-hidden="true"><use href="#i-panel"/></svg></button><span class="toolbar-divider"></span><div id="graph-counts" class="graph-counts" aria-live="polite"></div></div>
+            <div class="graph-tools"><label for="layout-select" class="sr-only">网络布局</label><select id="layout-select"><option value="cose">力导向布局</option><option value="breadthfirst">层次布局</option><option value="concentric">同心布局</option><option value="grid">网格布局</option></select><button id="export-png" class="icon-button" title="导出带证据提示的 PNG" aria-label="导出 PNG"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></button><button id="toggle-inspector" class="button tonal-button" aria-expanded="false" aria-controls="inspector-panel"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>详情</span></button></div>
+          </div>
+          <div class="canvas-area">
+            <div id="cy" tabindex="0" role="region" aria-label="可缩放、可拖动的证据网络。也可通过路径按钮和详情面板查看内容。"></div>
+            <div class="canvas-caption"><span class="status-dot"></span>证据网络<span class="caption-separator">/</span><span>仅展示文件中的关系</span></div>
+            <div id="graph-empty" class="graph-empty" hidden><svg class="empty-icon icon" aria-hidden="true"><use href="#i-network"/></svg><strong>该记录没有可展示的证据图</strong><span>不会根据文字或靶点列表补画 PPI。</span><label class="button secondary" for="file-input">选择其他 JSON</label></div>
+            <div id="graph-tooltip" class="graph-tooltip" hidden></div>
+            <div class="zoom-controls" role="group" aria-label="视图控制"><button id="zoom-in" class="icon-button" aria-label="放大" title="放大"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button><button id="zoom-out" class="icon-button" aria-label="缩小" title="缩小"><svg class="icon" aria-hidden="true"><use href="#i-minus"/></svg></button><span></span><button id="fit-graph" class="icon-button" title="适配视图" aria-label="适配视图"><svg class="icon" aria-hidden="true"><use href="#i-fit"/></svg></button></div>
+          </div>
+          <div class="graph-legend"><span class="legend-label">关系</span><span><i class="edge-key ppi-key"></i>PPI · 无向</span><span><i class="edge-key target-key"></i>靶点关联</span><span><i class="edge-key membership-key"></i>集合归属</span><span><i class="edge-key report-key"></i>报告／其他</span></div>
+          <div class="graph-bottom"><div class="arm-legend"><span class="legend-label">基因</span><span><i class="arm-dot left-dot"></i>药物 A 靶点</span><span><i class="arm-dot right-dot"></i>药物 B 靶点</span><span><i class="arm-dot both-dot"></i>共同靶点</span><span><i class="arm-dot bridge-dot"></i>其他节点</span></div><span class="canvas-help">滚轮缩放 · 拖动平移</span></div>
+        </section>
 
-        <section class="panel-section paths-section"><div class="section-heading">已记录路径 <button id="clear-selection" class="inline-button">取消高亮</button></div><div id="path-list" class="path-list"></div></section>
-      </aside>
-
-      <section class="graph-panel" aria-label="网络画布">
-        <div class="graph-toolbar"><div id="graph-counts" class="graph-counts" aria-live="polite"></div><div class="graph-tools"><label for="layout-select" class="sr-only">网络布局</label><select id="layout-select"><option value="cose">力导向布局</option><option value="breadthfirst">层次布局</option><option value="concentric">同心布局</option><option value="grid">网格布局</option></select><button id="fit-graph" class="icon-button" title="适配视图" aria-label="适配视图">⛶</button><button id="export-png" class="button small-button">导出 PNG</button></div></div>
-        <div id="cy" tabindex="0" role="region" aria-label="可缩放、可拖动的证据网络。也可通过左侧路径按钮和右侧原始信息查看内容。"></div>
-        <div id="graph-empty" class="graph-empty" hidden><strong>该记录没有可展示的证据图</strong><span>不会根据文字、靶点列表或示意关系补画 PPI。</span><label class="button secondary" for="file-input">选择其他解释 JSON</label></div>
-        <div id="graph-tooltip" class="graph-tooltip" hidden></div>
-        <div class="graph-bottom"><div class="arm-legend"><span><i class="arm-dot left-dot"></i>药物 A 靶点</span><span><i class="arm-dot right-dot"></i>药物 B 靶点</span><span><i class="arm-dot both-dot"></i>共同靶点</span><span><i class="arm-dot bridge-dot"></i>路径节点</span></div><span>滚轮缩放 · 拖动平移 · 点击查看详情</span></div>
-      </section>
-
-      <aside class="right-panel">
-        <div class="detail-tabs" role="tablist" aria-label="详情面板"><button id="tab-details" role="tab" aria-selected="true" aria-controls="details-panel">节点与边</button><button id="tab-diagnostics" role="tab" aria-selected="false" aria-controls="diagnostics-panel">诊断</button></div>
-        <section id="details-panel" class="detail-content" role="tabpanel" aria-labelledby="tab-details"><div class="eyebrow">INSPECTOR</div><h2 id="detail-title">探索证据图</h2><p id="detail-description" class="muted">悬停或点击节点与边，查看 JSON 记录的类型、来源及属性。</p><pre id="detail-json" class="json-view" hidden></pre><div class="evidence-note"><strong>如何阅读这张图</strong><p>实线 PPI 表示文件中记录的无向连接；虚线与点线分别表示候选关联、集合归属或报告结构。</p><p>没有箭头不代表关系已获验证；图中连通也不证明协同、因果或真实作用机制。</p></div></section>
-        <section id="diagnostics-panel" class="detail-content" role="tabpanel" aria-labelledby="tab-diagnostics" hidden><div class="eyebrow">INPUT DIAGNOSTICS</div><h2>路径与输入诊断</h2><p class="muted small">保留上游诊断原义；显示受限、未映射与断连分别呈现。</p><div id="diagnostic-summary"></div><pre id="diagnostic-json" class="json-view"></pre></section>
-      </aside>
+        <aside id="inspector-panel" class="right-panel" aria-label="详情与诊断" hidden>
+          <div class="inspector-header"><div class="detail-tabs" role="tablist" aria-label="详情面板"><button id="tab-details" role="tab" aria-selected="true" aria-controls="details-panel">详情</button><button id="tab-diagnostics" role="tab" aria-selected="false" aria-controls="diagnostics-panel" tabindex="-1">诊断<span id="diagnostic-count" class="count-badge" hidden>0</span></button></div><button id="close-inspector" class="icon-button" aria-label="关闭详情" title="关闭详情"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+          <section id="details-panel" class="detail-content" role="tabpanel" aria-labelledby="tab-details"><span class="inspector-label">选择信息</span><h2 id="detail-title">点选一个节点</h2><p id="detail-description" class="muted">点击节点、连线或左侧路径，查看文件中记录的属性。</p><pre id="detail-json" class="json-view" hidden></pre><details class="evidence-note"><summary>如何阅读这张图<svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></summary><p>实线 PPI 表示文件记录的无向连接；虚线与点线表示靶点关联、集合归属或报告结构。</p><p>来源未在此独立核验。网络连通不能证明协同、因果或真实作用机制。</p></details></section>
+          <section id="diagnostics-panel" class="detail-content" role="tabpanel" aria-labelledby="tab-diagnostics" hidden><span class="inspector-label">输入检查</span><h2>路径与输入诊断</h2><p class="muted">显示限制、未映射与断连分别呈现，保留上游诊断原义。</p><div id="diagnostic-summary"></div><pre id="diagnostic-json" class="json-view"></pre></section>
+        </aside>
+      </div>
     </section>
-    <footer><span>只展示 JSON 的既有节点与边，不重新运行模型或推断。</span><span>浏览器不上传文件；上游 PPI 原始数据和来源未在此独立核验。</span></footer>
+    <footer><span><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>文件仅在浏览器内读取，不上传服务器。</span><span>来源未独立核验 · 图中连接不构成因果证据</span></footer>
   </main>
   <script src="vendor/cytoscape.min.js"></script>
   <script src="example.js"></script>

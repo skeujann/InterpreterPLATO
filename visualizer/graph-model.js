@@ -117,10 +117,10 @@
     return base;
   }
   const styles = [
-    { selector: 'node', style: { 'background-color': '#cad5df', 'border-color': '#ffffff', 'border-width': 2, label: 'data(label)', color: '#26354c', 'font-size': 11, 'font-family': 'Arial, Microsoft YaHei, sans-serif', 'text-valign': 'bottom', 'text-margin-y': 7, 'text-wrap': 'wrap', 'text-max-width': 120, width: 31, height: 31 } },
-    { selector: 'node.drug', style: { shape: 'round-rectangle', width: 102, height: 38, 'background-color': '#233952', color: '#ffffff', 'text-valign': 'center', 'text-margin-y': 0, 'font-weight': 'bold', 'font-size': 12 } },
-    { selector: 'node.gene.arm-left', style: { 'background-color': '#68b3b0' } },
-    { selector: 'node.gene.arm-right', style: { 'background-color': '#e1b472' } },
+    { selector: 'node', style: { 'background-color': '#cad5df', 'border-color': '#ffffff', 'border-width': 2, label: 'data(label)', color: '#34465c', 'font-size': 12, 'font-family': 'Segoe UI, Microsoft YaHei, Arial, sans-serif', 'text-valign': 'bottom', 'text-margin-y': 9, 'text-wrap': 'wrap', 'text-max-width': 128, width: 32, height: 32 } },
+    { selector: 'node.drug', style: { shape: 'round-rectangle', width: 116, height: 42, 'background-color': '#3b5b80', color: '#ffffff', 'text-valign': 'center', 'text-margin-y': 0, 'font-weight': 'bold', 'font-size': 12 } },
+    { selector: 'node.gene.arm-left', style: { 'background-color': '#60a9a5' } },
+    { selector: 'node.gene.arm-right', style: { 'background-color': '#dbad68' } },
     { selector: 'node.gene.arm-both', style: { 'background-color': '#a58ac4', 'border-color': '#725695', 'border-width': 3 } },
     { selector: 'node.disease_module', style: { shape: 'diamond', width: 55, height: 55, 'background-color': '#b496d2' } },
     { selector: 'node.pathway', style: { shape: 'hexagon', width: 43, height: 43, 'background-color': '#d5c5e8' } },
@@ -134,8 +134,8 @@
     { selector: 'edge.hypothesis', style: { 'line-color': COLORS.hypothesis, 'line-style': 'dashed' } },
     { selector: 'edge.other', style: { 'line-color': COLORS.other, 'line-style': 'dashed', opacity: 0.55 } },
     { selector: '.dimmed', style: { opacity: 0.13, 'text-opacity': 0.25 } },
-    { selector: 'node.highlighted', style: { 'border-color': '#e27632', 'border-width': 4, 'z-index': 20 } },
-    { selector: 'edge.highlighted', style: { 'line-color': '#e27632', width: 4, opacity: 1, 'z-index': 15 } },
+    { selector: 'node.highlighted', style: { 'border-color': '#1a73e8', 'border-width': 4, 'z-index': 20 } },
+    { selector: 'edge.highlighted', style: { 'line-color': '#1a73e8', width: 3.5, opacity: 1, 'z-index': 15 } },
     { selector: '.filtered', style: { display: 'none' } },
   ];
   return Object.freeze({ LIMITS, COLORS, records, build, styles, relationship, isSynthetic, modeLabel });

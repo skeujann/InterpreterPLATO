@@ -112,6 +112,55 @@ test('real-input test mode is not relabeled synthetic and does not acquire a val
     assert.match(h.document.getElementById('mode-description').textContent, /不独立核验/);
   } finally { h.close(); }
 });
+test('workspace panels preserve selections and filters and open details when requested', async () => {
+  const h = await harness();
+  try {
+    const get = id => h.document.getElementById(id);
+    assert.equal(get('inspector-panel').hidden, true);
+    assert.equal(get('path-count').textContent, String(h.document.querySelectorAll('.path-button').length));
+    get('tab-filters').click();
+    assert.equal(get('paths-panel').hidden, true); assert.equal(get('filters-panel').hidden, false);
+    const filter = h.document.querySelector('[data-node-group="gene"]'); filter.checked = false; filter.dispatchEvent(new h.window.Event('change'));
+    get('toggle-sidebar').click();
+    assert.equal(get('explore-panel').hidden, true); assert.equal(get('toggle-sidebar').getAttribute('aria-expanded'), 'false');
+    get('toggle-sidebar').click();
+    assert.equal(filter.checked, false); assert.equal(get('filters-panel').hidden, false);
+    filter.checked = true; filter.dispatchEvent(new h.window.Event('change'));
+    get('tab-paths').click(); h.document.querySelector('.path-button').click();
+    assert.equal(get('inspector-panel').hidden, false); assert.equal(get('toggle-inspector').getAttribute('aria-expanded'), 'true');
+    assert.equal(h.document.querySelector('.path-button').getAttribute('aria-pressed'), 'true');
+    const selected = h.cy().elements('.highlighted').map(item => item.id());
+    get('close-inspector').click();
+    assert.equal(get('inspector-panel').hidden, true); assert.equal(h.document.activeElement, get('toggle-inspector'));
+    assert.deepEqual(h.cy().elements('.highlighted').map(item => item.id()), selected);
+    get('toggle-inspector').click(); get('inspector-panel').dispatchEvent(new h.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(get('inspector-panel').hidden, true);
+    h.cy().nodes()[0].emit('tap'); assert.equal(get('inspector-panel').hidden, false);
+    await upload(h, copy()); assert.equal(get('inspector-panel').hidden, true);
+  } finally { h.close(); }
+});
+
+test('tabs support arrow-key navigation and zoom controls respect viewport limits', async () => {
+  const h = await harness();
+  try {
+    const get = id => h.document.getElementById(id);
+    get('tab-paths').focus(); get('tab-paths').dispatchEvent(new h.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    assert.equal(h.document.activeElement, get('tab-filters')); assert.equal(get('tab-filters').tabIndex, 0); assert.equal(get('tab-paths').tabIndex, -1);
+    get('tab-filters').dispatchEvent(new h.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    assert.equal(get('paths-panel').hidden, false);
+    get('toggle-inspector').click(); get('tab-details').dispatchEvent(new h.window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    assert.equal(get('diagnostics-panel').hidden, false); assert.equal(h.document.activeElement, get('tab-diagnostics'));
+    h.cy().zoom(1); get('zoom-in').click(); assert.equal(h.cy().zoom(), 1.25);
+    get('zoom-out').click(); assert.equal(h.cy().zoom(), 1);
+    for (let i = 0; i < 30; i += 1) get('zoom-in').click();
+    assert.equal(h.cy().zoom(), h.cy().maxZoom());
+    for (let i = 0; i < 60; i += 1) get('zoom-out').click();
+    assert.equal(h.cy().zoom(), h.cy().minZoom());
+    await upload(h, { drug1: 'A', drug2: 'B', error: 'No evidence graph' });
+    for (const id of ['zoom-in', 'zoom-out', 'fit-graph', 'export-png']) assert.equal(get(id).disabled, true);
+  } finally { h.close(); }
+});
+
 test('PNG export includes the synthetic/non-computational watermark before download (canvas stub)', async () => {
   const h = await harness();
   try {
