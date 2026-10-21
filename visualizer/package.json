@@ -4,7 +4,7 @@
   "private": true,
   "description": "Development checks for the browser-local InterpreterPLATO viewer",
   "scripts": {
-    "test": "node --test ../tests/visualizer.test.cjs ../tests/visualizer-dom.test.cjs",
+    "test": "node --test ../tests/visualizer.test.cjs ../tests/visualizer-dom.test.cjs ../tests/visualizer-reference.test.cjs",
     "build": "node build.cjs"
   },
   "devDependencies": {

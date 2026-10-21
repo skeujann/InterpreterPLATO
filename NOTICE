@@ -19,6 +19,11 @@ In particular:
 
 * COSMIC data are license-gated and must not be redistributed without the
   necessary authorization.
+* The visualizer's BRAF/MEK reference example includes selected UniProtKB
+  annotation facts under CC BY 4.0 and selected Reactome participant facts
+  under CC0. Attribution, source links, modifications and scope are recorded
+  in visualizer/REFERENCE_CASE.md and the downloadable reference JSON. It is
+  an editorial reference example, not an InterpreterPLATO calculation.
 * ChEMBL license and required-attribution files are preserved under
   `data/raw/target_mapping/chembl/r37/` in a complete local source bundle.
 * The PLATO JSON/PDF fixture candidate records an observed external service

@@ -35,6 +35,7 @@
       (object(payload.metadata) && payload.metadata.generated_from_test_fixture === true);
   }
   function modeLabel(payload) {
+    if (payload.run_mode === 'reference_example') return '文献导览 · 非模型计算结果';
     if (object(payload.metadata) && payload.metadata.conceptual_example === true) return '概念示意（非真实计算结果）· 合成测试数据';
     if (isSynthetic(payload)) return '合成测试数据 · 非真实机制证据';
     if (payload.run_mode === 'test' || payload.run_mode === 'demo') return '测试／演示模式 · 非正式机制结果';

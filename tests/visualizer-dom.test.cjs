@@ -11,7 +11,7 @@ const root = path.join(__dirname, '../visualizer');
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 const copy = () => JSON.parse(JSON.stringify(fixture));
 
-async function harness() {
+async function harness(example = 'synthetic') {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), { runScripts: 'outside-only', url: 'file:///InterpreterPLATO/visualizer/index.html' });
   const { window } = dom;
   const errors = [];
@@ -30,8 +30,11 @@ async function harness() {
   };
   window.fetch = () => { throw new Error('Network access is forbidden in viewer tests'); };
   window.alert = () => { throw new Error('Untrusted text was executed'); };
-  for (const source of ['example.js', 'graph-model.js', 'app.js']) window.eval(fs.readFileSync(path.join(root, source), 'utf8'));
+  for (const source of ['example.js', 'reference.js', 'graph-model.js', 'app.js']) window.eval(fs.readFileSync(path.join(root, source), 'utf8'));
   await tick();
+  if (example === 'synthetic') {
+    const select = window.document.getElementById('example-select'); select.value = 'synthetic'; select.dispatchEvent(new window.Event('change')); await tick();
+  }
   return { window, document: window.document, cy: () => instances[instances.length - 1],
     close: () => { instances.forEach(cy => cy.destroy()); window.close(); assert.deepEqual(errors, [], 'No unhandled UI event errors'); } };
 }
@@ -42,7 +45,7 @@ async function upload(h, payload, name = 'explanation.json') {
   input.dispatchEvent(new h.window.Event('change', { bubbles: true })); await tick();
 }
 
-test('UI starts with an explicitly non-computational synthetic example and hides report structure', async () => {
+test('synthetic example remains explicitly non-computational and hides report structure', async () => {
   const h = await harness();
   try {
     assert.match(h.document.getElementById('mode-title').textContent, /非真实计算结果/);
@@ -161,8 +164,84 @@ test('tabs support arrow-key navigation and zoom controls respect viewport limit
   } finally { h.close(); }
 });
 
-test('PNG export includes the synthetic/non-computational watermark before download (canvas stub)', async () => {
-  const h = await harness();
+test('default reference case has a guided layout and highlights only supplied relationship types', async () => {
+  const h = await harness('reference');
+  try {
+    const get = id => h.document.getElementById(id);
+    assert.equal(get('case-guide').hidden, false); assert.equal(get('inspector-panel').hidden, true);
+    assert.match(get('case-title').textContent, /Dabrafenib \+ Trametinib/);
+    assert.match(get('mode-title').textContent, /文献导览.*非模型计算/);
+    assert.equal(h.cy().nodes().length, 11); assert.equal(h.cy().edges().length, 20);
+    assert.equal(h.cy().nodes().filter(node => !node.hasClass('filtered')).length, 9);
+    assert.match(get('graph-counts').textContent, /9 条 PPI/); assert.equal(get('layout-select').value, 'preset');
+    assert.equal(h.document.querySelectorAll('.path-button').length, 6);
+    assert.equal(h.document.querySelectorAll('.path-button:disabled').length, 0);
+    assert.equal(get('case-guide').open, false);
+    get('case-guide').querySelector('summary').click(); assert.equal(get('case-guide').open, true);
+    h.document.querySelector('[data-tour="targets"]').click();
+    assert.equal(h.cy().edges('.highlighted').length, 3);
+    assert.ok(h.cy().edges('.highlighted').every(edge => edge.data('type') === 'known_target'));
+    h.document.querySelector('[data-tour="ppi"]').click();
+    assert.equal(h.cy().edges('.highlighted').length, 2);
+    assert.ok(h.cy().edges('.highlighted').every(edge => edge.data('type') === 'PPI'));
+    assert.match(get('tour-status').textContent, /不是因果/);
+    h.document.querySelector('[data-tour="context"]').click();
+    assert.equal(h.cy().edges('.highlighted').length, 8);
+    assert.ok(h.cy().edges('.highlighted').every(edge => ['disease', 'pathway'].includes(edge.data('category'))));
+    assert.equal(h.cy().nodes().filter(node => !node.hasClass('filtered')).length, 11);
+    assert.match(get('detail-description').textContent, /单基因/);
+    get('show-reference-sources').click();
+    assert.equal(get('reference-sources').hidden, false); assert.match(get('detail-title').textContent, /来源/);
+    for (const link of h.document.querySelectorAll('#reference-sources a')) { assert.match(link.href, /^https:\/\//); assert.equal(link.rel, 'noopener noreferrer'); }
+    h.document.querySelector('[data-tour="overview"]').click();
+    assert.equal(h.cy().elements('.highlighted').length, 0); assert.equal(get('inspector-panel').hidden, true);
+    assert.equal(h.cy().nodes().length, 11); assert.equal(h.cy().edges().length, 20);
+  } finally { h.close(); }
+});
+
+test('uploaded files cannot activate curated layout, source links or reference tour by spoofing metadata', async () => {
+  const h = await harness('reference');
+  try {
+    const payload = copy(); payload.metadata.reference_example = true;
+    payload.metadata.visualization_positions = { 'drug:Demo-A': [1000000, -1000000] };
+    payload.metadata.references = [{ title: 'untrusted', url: 'javascript:alert(1)' }];
+    await upload(h, payload);
+    assert.equal(h.document.getElementById('case-guide').hidden, true);
+    assert.equal(h.document.getElementById('reference-sources').hidden, true);
+    assert.equal(h.document.getElementById('reference-layout').disabled, true);
+    assert.equal(h.document.getElementById('layout-select').value, 'cose');
+    assert.equal(h.document.querySelector('a[href^="javascript:"]'), null);
+    const model = h.cy().elements().map(item => item.id());
+    h.document.querySelector('[data-tour="ppi"]').click();
+    assert.deepEqual(h.cy().elements().map(item => item.id()), model);
+    h.document.getElementById('example-select').value = 'reference'; h.document.getElementById('load-example').click();
+    assert.equal(h.document.getElementById('case-guide').hidden, false); assert.equal(h.cy().nodes().length, 11);
+  } finally { h.close(); }
+});
+
+test('downloaded reference JSON reloads without changing its reference-only semantics', async () => {
+  const h = await harness('reference');
+  try {
+    const contents = [], downloads = [];
+    h.window.Blob = class { constructor(parts) { contents.push(parts.join('')); } };
+    h.window.URL.createObjectURL = () => 'blob:local-reference'; h.window.URL.revokeObjectURL = () => {};
+    h.window.HTMLAnchorElement.prototype.click = function () { downloads.push(this.download); };
+    h.document.getElementById('download-example').click();
+    assert.deepEqual(downloads, ['dabrafenib-trametinib.reference.json']);
+    const payload = JSON.parse(contents[0]);
+    assert.equal(payload.run_mode, 'reference_example'); assert.equal(payload.predicted_synergy, null);
+    await upload(h, contents[0], downloads[0]);
+    assert.equal(h.cy().nodes().length, 11); assert.equal(h.cy().edges().length, 20);
+    assert.equal(h.document.querySelectorAll('.path-button:disabled').length, 0);
+    assert.match(h.document.getElementById('path-list').textContent, /文献背景/);
+    assert.match(h.document.getElementById('mode-title').textContent, /非模型计算结果/);
+    assert.equal(h.document.getElementById('case-guide').hidden, true);
+    assert.equal(h.document.getElementById('reference-layout').disabled, true);
+  } finally { h.close(); }
+});
+
+for (const example of ['synthetic', 'reference']) test('PNG export retains non-computational identity: ' + example + ' (canvas stub)', async () => {
+  const h = await harness(example);
   try {
     const drawn = [], downloads = [];
     h.cy().png = () => 'data:image/png;base64,canvas-test-only';
@@ -175,7 +254,7 @@ test('PNG export includes the synthetic/non-computational watermark before downl
     h.window.URL.createObjectURL = () => 'blob:local-test'; h.window.URL.revokeObjectURL = () => {};
     h.window.HTMLAnchorElement.prototype.click = function () { downloads.push(this.download); };
     h.document.getElementById('export-png').click(); await tick();
-    assert.match(drawn.join(' '), /非真实计算结果/); assert.match(drawn.join(' '), /未独立核验/);
-    assert.deepEqual(downloads, ['InterpreterPLATO-SYNTHETIC-network.png']);
+    assert.match(drawn.join(' '), example === 'reference' ? /文献导览.*非模型计算结果/ : /非真实计算结果/); assert.match(drawn.join(' '), /未独立核验/);
+    assert.deepEqual(downloads, ['InterpreterPLATO-' + (example === 'reference' ? 'REFERENCE' : 'SYNTHETIC') + '-network.png']);
   } finally { h.close(); }
 });

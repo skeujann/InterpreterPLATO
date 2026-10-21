@@ -101,7 +101,7 @@ test('the optional single-file distribution embeds every asset, the license and 
     assert.doesNotMatch(html, /<script[^>]+src=/i); assert.doesNotMatch(html, /<link[^>]+stylesheet/i);
     assert.match(html, /Permission is hereby granted/); assert.match(html, /Cytoscape\.js 3\.34\.3/);
     const scripts = [...html.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)];
-    assert.equal(scripts.length, 4); scripts.forEach(([, source]) => new vm.Script(source));
+    assert.equal(scripts.length, 5); scripts.forEach(([, source]) => new vm.Script(source));
   } finally {
     assert.equal(path.dirname(path.resolve(temporary)), path.resolve(os.tmpdir()));
     assert.ok(path.basename(temporary).startsWith('plato-visualizer-'));

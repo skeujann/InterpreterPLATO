@@ -39,7 +39,7 @@
   <main>
     <div class="page-heading">
       <div><h1>机制网络</h1><p>从解释文件，探索靶点之间的连接。</p></div>
-      <button id="download-example" class="button text-button"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>示例 JSON</button>
+      <div class="example-actions"><label for="example-select" class="sr-only">内置实例</label><select id="example-select"><option value="reference">文献实例 · BRAF / MEK</option><option value="synthetic">合成测试 · 功能边界</option></select><button id="download-example" class="button text-button"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>实例 JSON</button></div>
     </div>
     <div id="error-banner" class="error-banner" role="alert" hidden></div>
 
@@ -52,6 +52,11 @@
 
       <div id="explorer-body" class="explorer-body">
         <aside id="explore-panel" class="left-panel" aria-label="路径与筛选">
+          <details id="case-guide" class="case-guide" aria-label="文献实例导览" hidden>
+            <summary><span class="guide-eyebrow">文献实例 / BRAF × MEK</span><strong>展开三步实例导览</strong><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></summary><p>先看靶点，再沿连接探索背景。</p>
+            <div class="tour-buttons" role="group" aria-label="实例导览"><button data-tour="overview" aria-pressed="true">全貌</button><button data-tour="targets" aria-pressed="false">1 靶点</button><button data-tour="ppi" aria-pressed="false">2 连接</button><button data-tour="context" aria-pressed="false">3 背景</button></div>
+            <p id="tour-status" class="tour-status" aria-live="polite"></p><button id="show-reference-sources" class="inline-button">查看来源与限制 <span aria-hidden="true">↗</span></button>
+          </details>
           <div class="search-area"><label class="search-box" for="node-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input id="node-search" type="search" placeholder="搜索节点" aria-label="搜索基因、药物或节点 ID" autocomplete="off"></label><p id="search-status" class="search-status" aria-live="polite">输入名称可高亮匹配节点</p></div>
           <div class="explore-tabs" role="tablist" aria-label="探索选项"><button id="tab-paths" role="tab" aria-selected="true" aria-controls="paths-panel">路径<span id="path-count" class="count-badge">0</span></button><button id="tab-filters" role="tab" aria-selected="false" aria-controls="filters-panel" tabindex="-1">筛选</button></div>
           <section id="paths-panel" class="paths-section" role="tabpanel" aria-labelledby="tab-paths"><div class="section-heading"><span>已记录路径</span><button id="clear-selection" class="inline-button">清除高亮</button></div><div id="path-list" class="path-list"></div><p class="panel-hint">选择路径，在图中查看已有 PPI 连接。</p></section>
@@ -78,7 +83,7 @@
         <section class="graph-panel" aria-label="网络画布">
           <div class="graph-toolbar">
             <div class="toolbar-start"><button id="toggle-sidebar" class="icon-button active" aria-label="路径与筛选" title="展开或收起路径与筛选" aria-expanded="true" aria-controls="explore-panel"><svg class="icon" aria-hidden="true"><use href="#i-panel"/></svg></button><span class="toolbar-divider"></span><div id="graph-counts" class="graph-counts" aria-live="polite"></div></div>
-            <div class="graph-tools"><label for="layout-select" class="sr-only">网络布局</label><select id="layout-select"><option value="cose">力导向布局</option><option value="breadthfirst">层次布局</option><option value="concentric">同心布局</option><option value="grid">网格布局</option></select><button id="export-png" class="icon-button" title="导出带证据提示的 PNG" aria-label="导出 PNG"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></button><button id="toggle-inspector" class="button tonal-button" aria-expanded="false" aria-controls="inspector-panel"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>详情</span></button></div>
+            <div class="graph-tools"><label for="layout-select" class="sr-only">网络布局</label><select id="layout-select"><option id="reference-layout" value="preset" hidden disabled>实例布局</option><option value="cose" selected>力导向布局</option><option value="breadthfirst">层次布局</option><option value="concentric">同心布局</option><option value="grid">网格布局</option></select><button id="export-png" class="icon-button" title="导出带证据提示的 PNG" aria-label="导出 PNG"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></button><button id="toggle-inspector" class="button tonal-button" aria-expanded="false" aria-controls="inspector-panel"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>详情</span></button></div>
           </div>
           <div class="canvas-area">
             <div id="cy" tabindex="0" role="region" aria-label="可缩放、可拖动的证据网络。也可通过路径按钮和详情面板查看内容。"></div>
@@ -93,7 +98,7 @@
 
         <aside id="inspector-panel" class="right-panel" aria-label="详情与诊断" hidden>
           <div class="inspector-header"><div class="detail-tabs" role="tablist" aria-label="详情面板"><button id="tab-details" role="tab" aria-selected="true" aria-controls="details-panel">详情</button><button id="tab-diagnostics" role="tab" aria-selected="false" aria-controls="diagnostics-panel" tabindex="-1">诊断<span id="diagnostic-count" class="count-badge" hidden>0</span></button></div><button id="close-inspector" class="icon-button" aria-label="关闭详情" title="关闭详情"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
-          <section id="details-panel" class="detail-content" role="tabpanel" aria-labelledby="tab-details"><span class="inspector-label">选择信息</span><h2 id="detail-title">点选一个节点</h2><p id="detail-description" class="muted">点击节点、连线或左侧路径，查看文件中记录的属性。</p><pre id="detail-json" class="json-view" hidden></pre><details class="evidence-note"><summary>如何阅读这张图<svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></summary><p>实线 PPI 表示文件记录的无向连接；虚线与点线表示靶点关联、集合归属或报告结构。</p><p>来源未在此独立核验。网络连通不能证明协同、因果或真实作用机制。</p></details></section>
+          <section id="details-panel" class="detail-content" role="tabpanel" aria-labelledby="tab-details"><span class="inspector-label">选择信息</span><h2 id="detail-title">点选一个节点</h2><p id="detail-description" class="muted">点击节点、连线或左侧路径，查看文件中记录的属性。</p><pre id="detail-json" class="json-view" hidden></pre><section id="reference-sources" class="reference-sources" aria-label="实例来源与限制" hidden></section><details class="evidence-note"><summary>如何阅读这张图<svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></summary><p>实线 PPI 表示文件记录的无向连接；虚线与点线表示靶点关联、集合归属或报告结构。</p><p>来源未在此独立核验。网络连通不能证明协同、因果或真实作用机制。</p></details></section>
           <section id="diagnostics-panel" class="detail-content" role="tabpanel" aria-labelledby="tab-diagnostics" hidden><span class="inspector-label">输入检查</span><h2>路径与输入诊断</h2><p class="muted">显示限制、未映射与断连分别呈现，保留上游诊断原义。</p><div id="diagnostic-summary"></div><pre id="diagnostic-json" class="json-view"></pre></section>
         </aside>
       </div>
@@ -102,6 +107,7 @@
   </main>
   <script src="vendor/cytoscape.min.js"></script>
   <script src="example.js"></script>
+  <script src="reference.js"></script>
   <script src="graph-model.js"></script>
   <script src="app.js"></script>
 </body>

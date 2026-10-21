@@ -8,6 +8,8 @@
 筛选节点、高亮双药与疾病路径、检查诊断并导出带标识的 PNG。无需运行 Python 或部署模型，
 文件不上传服务器；Cytoscape.js 随查看器打包。内置合成示例明确标注“概念示意（非真实计算结果）”。
 使用方法、单文件打包和证据边界见 [Visualizer 说明](visualizer/README.md)。
+首页默认提供 [BRAF / MEK 文献实例](visualizer/REFERENCE_CASE.md)：Dabrafenib + Trametinib、
+9 条可追溯公共互作和分步导览。该实例为人工整理的公共注释，不是 PLATO 或解释器计算结果。
 
 ## 安装与测试
 

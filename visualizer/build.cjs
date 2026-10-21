@@ -14,7 +14,7 @@ function build(output) {
   let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
   html = html.replace('<link rel="stylesheet" href="styles.css">', '<style>\n' + css + '\n</style>');
-  for (const source of ['vendor/cytoscape.min.js', 'example.js', 'graph-model.js', 'app.js']) {
+  for (const source of ['vendor/cytoscape.min.js', 'example.js', 'reference.js', 'graph-model.js', 'app.js']) {
     const code = fs.readFileSync(path.join(root, source), 'utf8').replace(/<\/script/gi, '<\\/script');
     // A replacement callback preserves literal $&, $$ and similar sequences in JS.
     html = html.replace('<script src="' + source + '"></script>', () => '<script>\n' + code + '\n</script>');
