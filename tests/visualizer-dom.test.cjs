@@ -11,7 +11,7 @@ const root = path.join(__dirname, '../visualizer');
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 const copy = () => JSON.parse(JSON.stringify(fixture));
 
-async function harness(example = 'synthetic') {
+async function harness(example = 'synthetic', runBundle) {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), { runScripts: 'outside-only', url: 'file:///InterpreterPLATO/visualizer/index.html' });
   const { window } = dom;
   const errors = [];
@@ -30,6 +30,7 @@ async function harness(example = 'synthetic') {
   };
   window.fetch = () => { throw new Error('Network access is forbidden in viewer tests'); };
   window.alert = () => { throw new Error('Untrusted text was executed'); };
+  if (runBundle) window.InterpreterRunExample = window.JSON.parse(JSON.stringify(runBundle));
   for (const source of ['example.js', 'reference.js', 'graph-model.js', 'app.js']) window.eval(fs.readFileSync(path.join(root, source), 'utf8'));
   await tick();
   if (example === 'synthetic') {
@@ -271,6 +272,39 @@ test('frozen reference JSON reloads without changing its reference-only semantic
     assert.match(h.document.getElementById('mode-title').textContent, /非模型计算结果/);
     assert.equal(h.document.getElementById('case-guide').hidden, true);
     assert.equal(h.document.getElementById('reference-layout').disabled, true);
+  } finally { h.close(); }
+});
+
+test('embedded run preserves actual statistics, complete graph, path types and upload isolation', async () => {
+  const { withRunFile } = require('./run-example-fixture.cjs');
+  const { prepareRun } = require('../visualizer/prepare-run.cjs');
+  const bundle = withRunFile(({ file }) => prepareRun(file));
+  const h = await harness('run', bundle);
+  try {
+    const get = id => h.document.getElementById(id), shown = item => !item.hasClass('filtered') && !item.hasClass('focus-hidden');
+    assert.equal(get('example-select').value, 'run'); assert.equal(get('run-summary').hidden, false);
+    assert.match(get('mode-title').textContent, /实际运行实例.*开发测试/);
+    assert.match(get('run-verdict').textContent, /未获显著支持/);
+    assert.match(get('run-metrics').textContent, /0\.8000/); assert.match(get('run-metrics').textContent, /1\.0000/);
+    assert.match(get('run-metrics').textContent, /调用方提供/); assert.match(get('run-metrics').textContent, /12\.3457/);
+    assert.equal(h.cy().nodes().filter(shown).length, 7); assert.equal(h.cy().edges().filter(shown).length, 6);
+    assert.equal(get('case-guide').hidden, true); assert.equal(get('run-guide').hidden, false);
+    assert.equal(h.document.querySelectorAll('.path-button').length, 2);
+    const terminal = h.cy().nodes('.run-context');
+    assert.ok(h.cy().nodes().filter(node => shown(node) && node.id() !== terminal.id()).every(node => node.position('x') < terminal.position('x')));
+    h.document.querySelector('.path-button').click();
+    assert.deepEqual([...h.cy().edges('.highlighted')].map(edge => edge.data('category')).sort(), ['disease', 'ppi', 'target']);
+    const ids = h.cy().elements().map(item => item.id());
+    get('view-full').click(); assert.equal(h.cy().nodes().filter(shown).length, 9); assert.equal(h.cy().edges().filter(shown).length, 8);
+    get('view-focus').click(); assert.deepEqual(h.cy().elements().map(item => item.id()), ids);
+    get('show-run-details').click(); assert.match(get('detail-json').textContent, /false/); assert.match(get('detail-json').textContent, new RegExp(bundle.source.sha256));
+    const payload = JSON.parse(JSON.stringify(bundle.payload)); payload.metadata = { ...bundle.presentation };
+    await upload(h, payload);
+    assert.equal(get('run-summary').hidden, true); assert.equal(get('reference-view-switch').hidden, true);
+    assert.equal(h.cy().nodes('.run-drug, .run-context').length, 0);
+    get('example-select').value = 'run'; get('load-example').click(); assert.equal(get('run-summary').hidden, false);
+    get('example-select').value = 'reference'; get('load-example').click();
+    assert.equal(get('run-summary').hidden, true); assert.match(get('focus-stage-labels').textContent, /BRAF/);
   } finally { h.close(); }
 });
 

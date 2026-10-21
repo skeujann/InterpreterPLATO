@@ -108,3 +108,25 @@ test('the optional single-file distribution embeds every asset, the license and 
     fs.rmSync(temporary, { recursive: true, force: true });
   }
 });
+test('local run build preserves the payload and source hash, and refuses unsupported paths', () => {
+  const { withRunFile } = require('./run-example-fixture.cjs'), { prepareRun } = require('../visualizer/prepare-run.cjs');
+  const crypto = require('node:crypto');
+  withRunFile(({ temporary, file, payload }) => {
+    payload.warning_flags.push('</script><img src=x onerror=alert(1)>'); fs.writeFileSync(file, JSON.stringify(payload));
+    const bundle = prepareRun(file);
+    assert.deepEqual(bundle.payload, payload);
+    assert.equal(bundle.source.sha256, crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'));
+    assert.equal(bundle.presentation.nodes.length, 7);
+    const output = build(path.join(temporary, 'local.html'), { caseFile: file });
+    const html = fs.readFileSync(output, 'utf8');
+    assert.match(html, /window\.InterpreterRunExample/); assert.doesNotMatch(html, /<script[^>]+src=/i);
+    assert.doesNotMatch(html, /<img src=x/); assert.throws(() => build(file, { caseFile: file }), /must not overwrite/);
+    [...html.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)].forEach(([, source]) => new vm.Script(source));
+    assert.throws(() => prepareRun(file, ['disease:0', 'disease:999']), /recorded non-zero/);
+    payload.evidence_graphs.explanation_evidence_graph.edges = payload.evidence_graphs.explanation_evidence_graph.edges.filter(edge => edge.source !== 'gene:B1');
+    fs.writeFileSync(file, JSON.stringify(payload));
+    assert.throws(() => prepareRun(file), /recorded non-zero/);
+    payload.generated_from_test_fixture = true; fs.writeFileSync(file, JSON.stringify(payload));
+    assert.throws(() => prepareRun(file), /non-synthetic/);
+  });
+});
