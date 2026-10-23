@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "InterpreterPLATO-Visualizer.html"
       - "visualizer/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -37,8 +38,13 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Build standalone Visualizer
-        run: node visualizer/build.cjs --output _site/index.html
+      - name: Verify selected standalone Visualizer
+        run: node visualizer/verify-published.cjs
+
+      - name: Stage selected HTML without rebuilding
+        run: |
+          mkdir -p _site
+          cp InterpreterPLATO-Visualizer.html _site/index.html
 
       - name: Upload static site
         uses: actions/upload-pages-artifact@v4

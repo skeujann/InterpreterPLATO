@@ -1,0 +1,43 @@
+{
+  "schema": "interpreterplato-published-viewer/v1",
+  "filename": "InterpreterPLATO-Visualizer.html",
+  "bytes": 10199101,
+  "sha256": "cd8ec90d8c1ef354b372a8a09a43c8a1725b86a3c4bab17bf304170da8b8020f",
+  "cases": [
+    {
+      "case_id": "SCORERI-DEV-01",
+      "source_sha256": "d7a07895f41bbfe91e9e2bf2d2d5f05dc067d6960b7fcc9e459a06feddeac936",
+      "payload_sha256": "920a734f02eb319ca53975879f37997ce28b76536051d73279c491cfa24f9574",
+      "nodes": 522,
+      "edges": 855
+    },
+    {
+      "case_id": "SCORERI-DEV-02",
+      "source_sha256": "ec585903e601aa84287d947edce2e168c973c1fea11d429cb15230b5fe617941",
+      "payload_sha256": "bda1491f256ff113349d3a22de36d31fece872ddfd6ca00e53e04999a7d81ef2",
+      "nodes": 232,
+      "edges": 350
+    },
+    {
+      "case_id": "SCORERI-DEV-03",
+      "source_sha256": "95f5323724a8d07ef4df56b681309629b11be341c65bc393f707534fabdb1776",
+      "payload_sha256": "513b4ec724248c6429b96f4e299781f76038bea555c31e3d659aad92fdb7e938",
+      "nodes": 1780,
+      "edges": 6496
+    },
+    {
+      "case_id": "SCORERI-DEV-05",
+      "source_sha256": "5a9b940400e0fe3b75ba323a493bee6d69c48fe3307f55b3602890d49f068665",
+      "payload_sha256": "80c449576878f6a4ed2c5880482102eac4353de0b342f5406e73282ae57bc381",
+      "nodes": 317,
+      "edges": 460
+    },
+    {
+      "case_id": "SCORERI-DEV-06",
+      "source_sha256": "9494bce6cd169ac384de07c49c25e7141c0325229f6cf4fda6cf614646242b78",
+      "payload_sha256": "a03098f45955e35f4dcc18a752c62ad61275028e11d4bb9defa6e6fd1dd7f9c0",
+      "nodes": 1295,
+      "edges": 3021
+    }
+  ]
+}

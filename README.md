@@ -4,15 +4,16 @@
 
 ## 纯前端离线 Visualizer
 
-下载 [单文件公开版 HTML](https://github.com/skeujann/InterpreterPLATO/raw/refs/heads/main/InterpreterPLATO-Visualizer.html) 后双击打开，
-或下载源码后双击 `visualizer/index.html`，即可在浏览器本地打开已有解释 JSON，查看网络、
-筛选节点、高亮双药与疾病路径、检查诊断并导出带标识的 PNG。无需运行 Python 或部署模型，
-文件不上传服务器；Cytoscape.js 随查看器打包。内置合成示例明确标注“概念示意（非真实计算结果）”。
+直接 [在线查看](https://skeujann.github.io/InterpreterPLATO/)，或下载 [单文件 HTML](https://github.com/skeujann/InterpreterPLATO/raw/refs/heads/main/InterpreterPLATO-Visualizer.html) 后双击打开。
+当前发布文件是五例开发测试的完整快照，内嵌 SCORERI-DEV-01、02、03、05、06 的真实解释 JSON，
+含 COSMIC／PLATO 来源内容及原始统计与诊断；这些开发测试不等于正式机制验证。
+右上角切换实例，可查看结果概览、核心路径和完整网络。也可打开自己的 JSON，筛选节点、
+高亮路径、检查诊断并导出 PNG。无需运行 Python 或部署模型，另行打开的文件只在浏览器内读取。
 使用方法、单文件打包和证据边界见 [Visualizer 说明](visualizer/README.md)。
-首页默认采用结果概览、双药核心路径和完整网络布局，使用独立编写的合成演示数据；不生成或冒充真实统计结果。
-右上角还可切换到 [BRAF / MEK 文献实例](visualizer/REFERENCE_CASE.md)：Dabrafenib + Trametinib、
+发布快照按哈希校验并直接部署，避免被无实例构建覆盖。第三方数据的上游许可仍适用，见 [NOTICE](NOTICE)。
+下载源码后也可双击 `visualizer/index.html`，该源码入口默认使用合成演示。
+查看器还提供 [BRAF / MEK 文献实例](visualizer/REFERENCE_CASE.md)：Dabrafenib + Trametinib、
 9 条可追溯公共互作和分步导览。该实例为人工整理的公共注释，不是 PLATO 或解释器计算结果。
-公开版不内置本地开发案例、COSMIC 数据或 PLATO 运行输出；自己的结果通过“打开 JSON”在浏览器内读取。
 
 ## 安装与测试
 
@@ -23,7 +24,7 @@ interpreter-plato --help
 python -m pytest tests
 ```
 
-仓库保留源码、测试、轻量配置和数据哈希清单。原始数据、处理后上下文、PLATO 缓存、六例开发选择及来源记录、输出和虚拟环境需在本地单独准备；详见 [数据准备](docs/DATA_BOOTSTRAP.md) 和 [本地开发案例说明](research/README.md)。
+除上述 HTML 内嵌的五例结果外，仓库保留源码、测试、轻量配置和数据哈希清单。原始数据、处理后上下文、PLATO 缓存、六例开发选择及来源记录、其他输出和虚拟环境需在本地单独准备；详见 [数据准备](docs/DATA_BOOTSTRAP.md) 和 [本地开发案例说明](research/README.md)。
 
 InterpreterPLATO 是一个药物组合生物学解释器。它的作用不是重新训练一个靶点预测模型，而是把一对药物组合的靶点证据、癌症细胞系上下文、PPI 网络、通路和疾病基因集合整合起来，生成可审计的机制解释。
 

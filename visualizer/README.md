@@ -4,14 +4,16 @@
 
 ## 直接使用
 
-下载 [单文件公开版 HTML](https://github.com/skeujann/InterpreterPLATO/raw/refs/heads/main/InterpreterPLATO-Visualizer.html)，双击即可打开，无需安装运行环境。
+当前 [在线页面](https://skeujann.github.io/InterpreterPLATO/) 和 [单文件 HTML](https://github.com/skeujann/InterpreterPLATO/raw/refs/heads/main/InterpreterPLATO-Visualizer.html)
+使用选定的五例开发测试快照。双击下载文件即可打开，无需安装运行环境。
+默认展示 SCORERI-DEV-01，可在右上角切换 02、03、05、06；五份原始结果、统计、诊断与来源哈希均保留。
+该发布文件内嵌真实运行 JSON，含 COSMIC／PLATO 来源内容；第三方数据许可并未因此改变，见根目录 `NOTICE`。
+核心路径不重复展示共同疾病集合终点，完整网络可查看原有节点；节点名称在悬停时出现。
+
 也可下载仓库源码，双击本目录的 `index.html`，并保留同目录的 JS、CSS 和 `vendor/` 文件。
-浏览器默认显示 **公开演示 · 合成数据**，使用与本地运行实例相同的结果概览、指标卡、双药核心路径和完整网络布局。
-演示独立构造了 194 个节点，完整网络默认不带标签，悬停查看名称；所有关系均为合成数据。
-概览卡只显示示例靶点和节点数量，没有伪造 p 值、协同分数或真实运行结论。
+源码入口默认显示独立构造的 **公开演示 · 合成数据**，其 194 个节点与全部关系均为合成占位，概览卡不提供真实统计结果。
 可切换到 **Dabrafenib + Trametinib** 文献导览（非模型计算结果）或“合成测试 · 功能边界”；点击 **打开 JSON**，或拖入本地文件，
 即可查看已有解释。支持单条解释、解释数组，以及 `{"results": [...]}`。
-公开版只内置公共文献注释和合成测试示例，不含本地开发案例或受限数据；自己的运行结果可在本地打开。
 
 文件只在当前浏览器内通过 File API 读取。应用不向服务器上传数据、不查询 PLATO、
 不下载原始生物医学资源，也不重新运行解释器。Cytoscape.js 已随目录打包，没有 CDN、
@@ -91,13 +93,16 @@ node visualizer/build.cjs
 对方双击即可打开，无需 Node.js、Python、其他资源文件或网络连接。
 第三方库的 MIT 许可证同时保留在单文件中。
 
-维护仓库根目录的公开版时，不传入 `--case`，执行：
+上述无 `--case` 构建只生成不含实际运行实例的查看器。仓库根目录的发布 HTML 是另行选定的五例完整快照，
+不使用这个构建结果覆盖。更新发布快照后，执行：
 
 ```bash
-node visualizer/build.cjs --output InterpreterPLATO-Visualizer.html
+node visualizer/verify-published.cjs --update-lock
+node visualizer/verify-published.cjs
 ```
 
-CI 会比较重新构建的文件与已提交公开版，避免源码更新后下载文件仍是旧版。
+`published-viewer.json` 锁定整个 HTML 的精确字节、五例输入来源哈希、完整结果哈希及节点／边数量。
+CI 验证快照，Pages 将同一 HTML 原样复制到站点入口，不再重新构建成合成示例版。哈希只证明完整性，不代表数据授权。
 
 ## 将已有实际运行结果制作成本地实例
 
@@ -129,9 +134,9 @@ node visualizer/build.cjs --case /local/case-a.json --case /local/case-b.json --
 主图只筛选显示范围；“完整网络”保留全部原始节点、边和报告结构，来源面板保留输入文件 SHA-256。
 自行上传的 JSON 不能通过同名元数据启用内置布局或伪装成这个实例。
 
-构建器只读取本地输入并写入用户指定的输出位置，不创建公开数据文件，也不上传。
-含 COSMIC、PLATO 导出或其他受限注释的真实运行实例应保留在本地许可范围内，
-公开仓库提供查看器、构建代码和不含受限数据的单文件公开版；`visualizer/dist/` 已忽略，运行 JSON 不作为公共测试夹具提交。
+构建器只读取本地输入并写入用户指定位置，本身不上传；对外发布由后续部署完成。
+含 COSMIC、PLATO 导出或其他受限注释的实例仍受上游数据许可约束。
+当前发布的选定单文件快照另外内嵌五例完整开发结果；其他本地运行 JSON 和 `visualizer/dist/` 仍不作为公共测试夹具提交。
 
 ## 开发检查
 

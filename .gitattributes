@@ -12,6 +12,9 @@
 # Archived provider responses are immutable byte artifacts.
 data/raw/plato/** -text
 
+# Preserve the selected standalone publication byte for byte.
+/InterpreterPLATO-Visualizer.html -text
+
 *.gz binary
 *.pdf binary
 *.xlsx binary
