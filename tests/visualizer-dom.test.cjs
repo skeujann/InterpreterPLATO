@@ -35,10 +35,10 @@ async function harness(example = 'synthetic', runBundle, styleEnabled = false) {
     if (Array.isArray(value)) { window.InterpreterRunExamples = value; window.InterpreterRunExample = value[0]; }
     else window.InterpreterRunExample = value;
   }
-  for (const source of ['example.js', 'reference.js', 'graph-model.js', 'app.js']) window.eval(fs.readFileSync(path.join(root, source), 'utf8'));
+  for (const source of ['example.js', 'public-demo.js', 'reference.js', 'graph-model.js', 'app.js']) window.eval(fs.readFileSync(path.join(root, source), 'utf8'));
   await tick();
-  if (example === 'synthetic') {
-    const select = window.document.getElementById('example-select'); select.value = 'synthetic'; select.dispatchEvent(new window.Event('change')); await tick();
+  if (['synthetic', 'reference'].includes(example)) {
+    const select = window.document.getElementById('example-select'); select.value = example; select.dispatchEvent(new window.Event('change')); await tick();
   }
   return { window, document: window.document, cy: () => instances[instances.length - 1],
     close: () => { instances.forEach(cy => cy.destroy()); window.close(); assert.deepEqual(errors, [], 'No unhandled UI event errors'); } };
@@ -50,6 +50,40 @@ async function upload(h, payload, name = 'explanation.json') {
   input.dispatchEvent(new h.window.Event('change', { bubbles: true })); await tick();
 }
 
+test('public homepage uses the optimized result layout with explicitly synthetic data and no fabricated statistics', async () => {
+  const h = await harness('default', undefined, true);
+  try {
+    const get = id => h.document.getElementById(id), shown = node => !node.hasClass('filtered') && !node.hasClass('focus-hidden');
+    assert.equal(get('example-select').value, 'demo');
+    assert.equal(get('run-summary').hidden, false);
+    assert.equal(get('run-guide').hidden, false);
+    assert.equal(get('hero-endpoint').textContent, 'DEMO.');
+    assert.match(get('run-summary-kind').textContent, /SYNTHETIC/);
+    assert.match(get('run-rule').textContent, /合成数据.*未运行模型或统计/);
+    assert.doesNotMatch(get('run-metrics').textContent, /校正 p|0\.\d{4}|协同分数/);
+    assert.equal(get('run-metrics').querySelectorAll('dd').length, 3);
+    assert.equal(get('view-description').hidden, true);
+    assert.equal(h.document.querySelectorAll('.path-button').length, 2);
+    assert.equal(h.cy().nodes().filter(shown).length, 7);
+    assert.equal(h.cy().nodes().filter(shown).some(node => node.data('type') === 'disease_module'), false);
+    assert.ok(h.cy().nodes().filter(shown).every(node => node.style('label') !== ''));
+    h.document.querySelector('.path-button').click();
+    assert.equal(h.cy().edges('.highlighted').filter(edge => edge.data('category') === 'ppi').length, 2);
+    get('view-full').click();
+    assert.equal(h.cy().nodes().filter(shown).length, 194);
+    assert.ok(h.cy().nodes().filter(shown).every(node => node.style('label') === ''));
+    const node = h.cy().nodes().find(node => node.data('originalId') === 'gene:SYN_001');
+    node.emit('mouseover'); assert.match(get('graph-tooltip').textContent, /SYN_001/);
+    get('show-run-details').click();
+    assert.match(get('detail-title').textContent, /合成界面示例/);
+    assert.match(get('detail-json').textContent, /"generated_from_test_fixture": true/);
+    assert.doesNotMatch(get('detail-json').textContent, /COSMIC/);
+    await upload(h, JSON.parse(JSON.stringify(h.window.InterpreterPublicDemo.payload)));
+    assert.equal(get('run-summary').hidden, true);
+    assert.equal(get('reference-view-switch').hidden, true);
+    assert.equal(get('mode-banner').hidden, false);
+  } finally { h.close(); }
+});
 test('synthetic example remains explicitly non-computational and hides report structure', async () => {
   const h = await harness();
   try {
@@ -385,7 +419,7 @@ test('run suite switches case payloads and never promotes invalid statistics or 
   } finally { h.close(); }
 });
 
-for (const example of ['synthetic', 'reference']) test('PNG export retains non-computational identity: ' + example + ' (canvas stub)', async () => {
+for (const example of ['synthetic', 'reference', 'demo']) test('PNG export retains non-computational identity: ' + example + ' (canvas stub)', async () => {
   const h = await harness(example);
   try {
     const drawn = [], downloads = [];

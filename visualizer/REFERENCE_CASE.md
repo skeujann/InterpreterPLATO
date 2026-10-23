@@ -1,6 +1,6 @@
 # BRAF / MEK 文献实例
 
-首页默认展示 **Dabrafenib + Trametinib**。这个组合有可查的原始研究，靶点层级清楚，
+在右上角选择“文献实例 · BRAF / MEK”，即可展示 **Dabrafenib + Trametinib**。这个组合有可查的原始研究，靶点层级清楚，
 适合用一个小网络演示关系筛选、路径高亮、原始属性、来源查看和离线导出。
 组合与 BRAF V600 突变黑色素瘤的研究背景见
 [Flaherty et al., NEJM 2012, PMID 23020132](https://pubmed.ncbi.nlm.nih.gov/23020132/)。

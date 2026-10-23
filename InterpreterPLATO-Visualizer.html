@@ -356,7 +356,7 @@ footer > span { display: inline-flex; align-items: center; gap: 7px; }footer .ic
     <a class="skip-link" href="#cy">跳转到网络图</a>
     <div class="brand"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-network"/></svg></span><strong>InterpreterPLATO</strong><span class="brand-subtitle">EVIDENCE ATLAS</span></div>
     <span class="local-badge"><span class="status-dot"></span>LOCAL / 本地运行</span>
-    <label for="example-select" class="sr-only">内置实例</label><select id="example-select" class="example-select"><option value="reference">文献实例 · BRAF / MEK</option><option value="synthetic">合成测试 · 功能边界</option></select>
+    <label for="example-select" class="sr-only">内置实例</label><select id="example-select" class="example-select"><option value="demo">公开演示 · 合成数据</option><option value="reference">文献实例 · BRAF / MEK</option><option value="synthetic">合成测试 · 功能边界</option></select>
     <button id="load-example" class="icon-button reset-example" aria-label="重新加载所选实例" title="重新加载所选实例"><svg class="icon" aria-hidden="true"><use href="#i-example"/></svg></button>
     <label class="button primary upload-button" for="file-input"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>打开 JSON</label><input id="file-input" type="file" accept=".json,application/json" hidden>
   </header>
@@ -366,7 +366,7 @@ footer > span { display: inline-flex; align-items: center; gap: 7px; }footer .ic
       <div id="endpoint-hero" class="endpoint-hero"><div><span id="hero-type" class="eyebrow">阅读终点 / 疾病模块</span><span class="hero-coordinate">04 /</span></div><strong id="hero-endpoint" class="disease-title">黑色素瘤<span class="endpoint-period">.</span></strong><p id="hero-note">BRAF V600 · 文献背景，非计算疾病基因集。</p></div>
     </section>
     <section id="run-summary" class="run-summary" aria-label="实际运行结果" hidden>
-      <div class="run-verdict"><span class="eyebrow">INTERPRETER OUTPUT / TEST</span><h2 id="run-verdict"></h2><p id="run-rule"></p><button id="show-run-details" class="run-details-button">查看结果与来源 ↗</button></div>
+      <div class="run-verdict"><span id="run-summary-kind" class="eyebrow">INTERPRETER OUTPUT / TEST</span><h2 id="run-verdict"></h2><p id="run-rule"></p><button id="show-run-details" class="run-details-button">查看结果与来源 ↗</button></div>
       <dl id="run-metrics" class="run-metrics"></dl>
     </section>
     <div id="error-banner" class="error-banner" role="alert" hidden></div>
@@ -488,6 +488,60 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
       note: '这些诊断为界面测试占位，不是解释器运行结果。',
     },
     network_statistics: { valid: false, quality_status: 'not_evaluated', reason: 'conceptual_example_no_calculation' },
+  };
+});
+
+</script>
+  <script>
+/* Synthetic UI demonstration, authored independently of local run files or databases. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./example.js'));
+  else root.InterpreterPublicDemo = factory(root.InterpreterExample);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (fixture) {
+  'use strict';
+  const payload = JSON.parse(JSON.stringify(fixture));
+  payload.cell_line = 'DEMO';
+  payload.run_mode = 'demo';
+  payload.metadata.notice = '公开界面演示。全部节点和关系为合成数据，未运行 PLATO、解释器或统计检验。';
+  payload.disease_context_source = 'synthetic_fixture_only';
+  payload.disease_context_labels = ['synthetic_context'];
+  payload.disease_context_size = 1;
+  const graph = payload.evidence_graphs.explanation_evidence_graph;
+  const added = Array.from({ length: 180 }, (_, i) => 'SYN_' + String(i + 1).padStart(3, '0'));
+  graph.nodes.push(...added.map(name => ({ id: 'gene:' + name, type: 'gene', name, synthetic_fixture: true })));
+  const pairs = new Set();
+  function connect(left, right) {
+    const key = [left, right].sort().join('|');
+    if (left === right || pairs.has(key)) return;
+    pairs.add(key);
+    graph.edges.push({ source: 'gene:' + left, target: 'gene:' + right, type: 'PPI', directed: false,
+      synthetic_fixture: true, source_dataset: 'synthetic_fixture_only_not_observed_ppi' });
+  }
+  // Fixed ring/chord pattern exercises overview and hover; no biological topology is used.
+  added.forEach((name, i) => {
+    connect(name, added[(i + 1) % added.length]);
+    connect(name, added[(i + 13) % added.length]);
+    if (i % 6 === 0) connect(name, i % 12 === 0 ? 'SYN_BRIDGE_1' : 'SYN_BRIDGE_2');
+  });
+  return {
+    schema: 'interpreterplato-public-demo/v1',
+    source: { case_id: 'PUBLIC DEMO', kind: 'synthetic', filename: 'public-demo.js', sha256: null },
+    presentation: {
+      nodes: ['drug:Demo-A', 'drug:Demo-B', 'gene:SYN_A', 'gene:SYN_B', 'gene:SYN_BRIDGE_1', 'gene:SYN_BRIDGE_2', 'gene:SYN_DISEASE', 'disease_module:SYN_CONTEXT'],
+      pathIds: ['disease:0', 'disease:1'], endpoint: 'disease_module:SYN_CONTEXT',
+      targets: ['gene:SYN_A', 'gene:SYN_B'], members: ['gene:SYN_DISEASE'],
+      positions: { 'drug:Demo-A': [-430, -110], 'drug:Demo-B': [-430, 110],
+        'gene:SYN_A': [-130, -110], 'gene:SYN_B': [-130, 110],
+        'gene:SYN_BRIDGE_1': [160, -110], 'gene:SYN_BRIDGE_2': [160, 110],
+        'gene:SYN_DISEASE': [450, 0], 'disease_module:SYN_CONTEXT': [810, 0] },
+      compactPositions: { 'drug:Demo-A': [-120, -240], 'drug:Demo-B': [120, -240],
+        'gene:SYN_A': [-120, -80], 'gene:SYN_B': [120, -80],
+        'gene:SYN_BRIDGE_1': [-120, 70], 'gene:SYN_BRIDGE_2': [120, 70],
+        'gene:SYN_DISEASE': [0, 220], 'disease_module:SYN_CONTEXT': [0, 390] },
+      contextLabel: '合成疾病集合', contextSource: 'synthetic_fixture_only', contextSize: 1,
+      contextDisplayLabel: '合成疾病集合\n非真实疾病注释',
+    },
+    payload,
   };
 });
 
@@ -1899,7 +1953,7 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
   const RUNS = Array.isArray(window.InterpreterRunExamples) ? window.InterpreterRunExamples : window.InterpreterRunExample ? [window.InterpreterRunExample] : [];
   const QUALITY = { adequate: '充分', limited: '有限', insufficient: '不足' };
   const RULES = { network_close_distinct_processes: '网络接近，过程注释不同', network_proximal_targets: '候选靶点在 PPI 网络中接近', shared_pathway_co_modulation: '两侧候选靶点共同富集于部分通路', overlapping_single_exposure: '一侧疾病邻近，靶点或网络邻域存在重叠' };
-  const state = { cy: null, rows: [], model: null, source: '', selectedPath: null, hoverElements: null, stageColumns: [], canvasSize: '', reference: false, runExample: false, referenceView: 'focus', compact: false };
+  const state = { cy: null, rows: [], model: null, source: '', selectedPath: null, hoverElements: null, stageColumns: [], canvasSize: '', reference: false, runExample: false, demoExample: false, runBundle: null, referenceView: 'focus', compact: false };
   const COMPACT_POSITIONS = { 'drug:Dabrafenib': [-100, -220], 'drug:Trametinib': [100, -220], 'gene:MAP2K1': [40, -80], 'gene:MAP2K2': [150, 10], 'gene:BRAF': [-65, 75], 'disease_module:literature-context': [50, 240] };
   const GROUP_LABELS = { gene: '基因／蛋白节点', drug: '药物', pathway: '通路集合', disease_module: '疾病基因集合', prediction_evidence: '预测证据记录', mechanism: '报告摘要结构', counterfactual: '敏感性分析记录' };
   const EDGE_LABELS = { ppi: '文件记录的无向 PPI', target: '候选靶点关联', disease: '疾病集合归属', pathway: '通路集合归属', report: '报告结构／证据支持', hypothesis: '规则生成假说', other: '未分类关系' };
@@ -1965,41 +2019,53 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
   function guided() { return state.reference || state.runExample; }
   function focusView() { return guided() && state.referenceView === 'focus'; }
   function guide() {
-    return state.runExample ? window.InterpreterRunExample.presentation : {
+    return state.runExample ? state.runBundle.presentation : {
       nodes: window.InterpreterReference.metadata.focus_view.nodes,
       positions: window.InterpreterReference.metadata.visualization_positions, compactPositions: COMPACT_POSITIONS,
     };
   }
   function compactView() { return focusView() && $('cy').clientWidth > 0 && $('cy').clientWidth < 560; }
   function caption() {
-    return focusView() ? state.runExample ? '候选靶点与已记录 PPI · 连线无方向' : '终点为疾病模块 · 紫色点线为背景归属 · 连线无方向' : '仅展示文件中的关系 · 连线无方向';
+    return focusView() ? state.demoExample ? '合成靶点与互作路径 · 连线无方向' : state.runExample ? '候选靶点与已记录 PPI · 连线无方向' : '终点为疾病模块 · 紫色点线为背景归属 · 连线无方向' : '仅展示文件中的关系 · 连线无方向';
   }
   function renderRunSummary() {
     $('run-summary').hidden = !state.runExample; $('run-guide').hidden = !state.runExample;
     if (!state.runExample) return;
-    const p = state.model.payload, stats = p.network_statistics || {}, source = window.InterpreterRunExample.source;
+    const p = state.model.payload, stats = p.network_statistics || {}, source = state.runBundle.source;
+    $('run-summary').setAttribute('aria-label', state.demoExample ? '合成界面演示' : '实际运行结果');
+    $('run-summary-kind').textContent = state.demoExample ? 'INTERFACE DEMO / SYNTHETIC' : 'INTERPRETER OUTPUT / TEST';
+    $('show-run-details').textContent = state.demoExample ? '查看示例结构 ↗' : '查看结果与来源 ↗';
     const evaluated = stats.valid === true;
     $('run-verdict').textContent = !evaluated ? '网络统计不可评估' : stats.statistically_supported === true
       ? typeof stats.near_A === 'boolean' && typeof stats.near_B === 'boolean' && stats.near_A !== stats.near_B ? '仅一侧疾病邻近获支持' : '网络统计记录：获得支持'
       : stats.statistically_supported === false ? '疾病邻近未获显著支持' : '统计支持状态未记录';
     $('run-rule').textContent = '探索性规则分类：' + (RULES[p.mechanism_type] || p.mechanism_type) + '。' + (stats.n_randomizations || '未记录') + ' 次随机化 · 统计质量：' + (QUALITY[stats.quality_status] || stats.quality_status || '未记录') + '。';
     const metrics = $('run-metrics'); metrics.replaceChildren();
-    for (const [label, value, note] of [
+    const entries = state.demoExample ? [
+      [p.drug1_name + ' / 示例靶点', p.drug1_targets.targets.length, '合成关联，非 PLATO 预测'],
+      [p.drug2_name + ' / 示例靶点', p.drug2_targets.targets.length, '合成关联，非 PLATO 预测'],
+      ['完整网络 / 节点', state.model.nodeCount, '全部节点与关系均为合成数据'],
+    ] : [
       [p.drug1_name + ' / 校正 p', evaluated ? stats.p_A_adjusted : null, evaluated ? '疾病邻近检验' : '统计质量不足，未提供有效 p 值'],
       [p.drug2_name + ' / 校正 p', evaluated ? stats.p_B_adjusted : null, evaluated ? '疾病邻近检验' : '统计质量不足，未提供有效 p 值'],
       ['上游输入分数', p.predicted_synergy, '由调用方提供，非本次解释器计算'],
-    ]) {
-      const item = element('div'); item.append(element('dt', '', label), element('dd', '', typeof value === 'number' && Number.isFinite(value) ? value.toFixed(4) : !evaluated && label.includes('校正 p') ? '不可评估' : '未记录'), element('small', '', note)); metrics.appendChild(item);
+    ];
+    for (const [label, value, note] of entries) {
+      const item = element('div'); item.append(element('dt', '', label), element('dd', '', state.demoExample ? String(value) : typeof value === 'number' && Number.isFinite(value) ? value.toFixed(4) : !evaluated && label.includes('校正 p') ? '不可评估' : '未记录'), element('small', '', note)); metrics.appendChild(item);
+    }
+    if (state.demoExample) {
+      $('run-verdict').textContent = '双药靶点与互作路径';
+      $('run-rule').textContent = '合成数据展示界面布局，未运行模型或统计检验。';
     }
     $('run-guide-id').textContent = source.case_id;
-    $('run-guide-note').textContent = '来自已有运行 JSON · ' + guide().pathIds.length + ' 条选定路径';
+    $('run-guide-note').textContent = (state.demoExample ? '合成界面示例 · ' : '来自已有运行 JSON · ') + guide().pathIds.length + ' 条选定路径';
   }
   function showRunDetails() {
     if (!state.runExample) return;
     const p = state.model.payload, s = p.network_statistics || {};
-    $('detail-title').textContent = window.InterpreterRunExample.source.case_id + ' · 实际运行输出';
-    $('detail-description').textContent = '开发测试结果；规则分类与统计支持分别呈现。疾病集合为输入中的 ' + guide().contextLabel + '，不表示细胞系特异疾病基因集。';
-    $('detail-json').textContent = pretty({ source_file: window.InterpreterRunExample.source,
+    $('detail-title').textContent = state.runBundle.source.case_id + (state.demoExample ? ' · 合成界面示例' : ' · 实际运行输出');
+    $('detail-description').textContent = state.demoExample ? '节点、关系和场景均为独立编写的合成数据；没有真实运行结果、统计值或生物学证据。' : '开发测试结果；规则分类与统计支持分别呈现。疾病集合为输入中的 ' + guide().contextLabel + '，不表示细胞系特异疾病基因集。';
+    $('detail-json').textContent = pretty({ source_file: state.runBundle.source,
       run_mode: p.run_mode, generated_from_test_fixture: p.generated_from_test_fixture, formal_result_eligible: p.formal_result_eligible,
       mechanism_type: p.mechanism_type, predicted_synergy_upstream_input: p.predicted_synergy,
       disease_context: { source: p.disease_context_source, labels: p.disease_context_labels, size: p.disease_context_size },
@@ -2015,7 +2081,7 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
     state.stageColumns = []; $('focus-stage-labels').replaceChildren();
     $('overview-layout').hidden = focusView(); $('overview-layout').disabled = focusView();
     $('reference-view-switch').hidden = !guided();
-    $('reference-view-switch').setAttribute('aria-label', state.runExample ? '运行实例显示范围' : '文献实例显示范围');
+    $('reference-view-switch').setAttribute('aria-label', state.demoExample ? '合成示例显示范围' : state.runExample ? '运行实例显示范围' : '文献实例显示范围');
     $('view-focus').setAttribute('aria-pressed', String(focusView()));
     $('view-focus').textContent = state.runExample ? '核心路径' : '疾病主路径';
     $('view-full').setAttribute('aria-pressed', String(guided() && !focusView()));
@@ -2033,11 +2099,12 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
     $('canvas-caption-text').textContent = caption();
     document.querySelector('.hero-coordinate').textContent = state.runExample ? '03 /' : '04 /';
     if (state.runExample) {
-      $('hero-type').textContent = '分析细胞系 / 开发测试';
+      $('hero-type').textContent = state.demoExample ? '演示场景 / 合成数据' : '分析细胞系 / 开发测试';
       $('hero-endpoint').replaceChildren(document.createTextNode(state.model.payload.cell_line || 'LOCAL'), element('span', 'endpoint-period', '.'));
       $('hero-endpoint').classList.remove('disease-title');
-      $('hero-note').textContent = window.InterpreterRunExample.source.case_id;
+      $('hero-note').textContent = state.runBundle.source.case_id;
     }
+    $('run-legend').querySelector('span').lastChild.textContent = state.demoExample ? '示例靶点' : 'PLATO 候选靶点';
     renderRunSummary();
   }
   function positionStageLabels() {
@@ -2063,7 +2130,7 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
       });
       columns = [...byPosition].sort((a, b) => a[0] - b[0]).map(([, nodes]) => {
         const targets = nodes.some(node => node.hasClass('run-target')), members = nodes.some(node => node.hasClass('run-member'));
-        return { nodes, title: nodes.some(node => node.data('type') === 'drug') ? '药物' : targets && members ? '候选靶点 / 路径基因' : targets ? 'PLATO 候选靶点' : 'PPI 路径基因' };
+        return { nodes, title: nodes.some(node => node.data('type') === 'drug') ? '药物' : targets && members ? '候选靶点 / 路径基因' : targets ? state.demoExample ? '示例靶点' : 'PLATO 候选靶点' : 'PPI 路径基因' };
       });
     } else {
       columns = [['reference-drug', '药物'], ['reference-target', '靶点与互作'], ['reference-anchor', 'BRAF'], ['reference-context', '疾病模块']]
@@ -2157,6 +2224,7 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
   }
   function builtin() {
     const selected = $('example-select').value;
+    if (selected === 'demo') return window.InterpreterPublicDemo.payload;
     const index = selected === 'run' ? 0 : selected.startsWith('run:') ? Number(selected.slice(4)) : -1;
     if (Number.isInteger(index) && RUNS[index]) { window.InterpreterRunExample = RUNS[index]; return RUNS[index].payload; }
     return selected === 'synthetic' ? window.InterpreterExample : window.InterpreterReference;
@@ -2166,7 +2234,7 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
     $('case-guide').open = false;
     resetFilters(reference); sidebar(true); exploreTab('paths');
     const actualRun = window.InterpreterRunExample && payload === window.InterpreterRunExample.payload;
-    load(payload, actualRun ? window.InterpreterRunExample.source.case_id + ' · SHA-256 ' + window.InterpreterRunExample.source.sha256.slice(0, 12) : reference ? '文献实例 · 公共注释快照 2026-10-21' : '内置合成概念示例 · 无真实计算');
+    load(payload, payload === window.InterpreterPublicDemo.payload ? '公开界面演示 · 合成数据' : actualRun ? window.InterpreterRunExample.source.case_id + ' · SHA-256 ' + window.InterpreterRunExample.source.sha256.slice(0, 12) : reference ? '文献实例 · 公共注释快照 2026-10-21' : '内置合成概念示例 · 无真实计算');
     if (reference) tour('overview');
   }
   function referenceSources() {
@@ -2313,7 +2381,7 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
     $('search-status').textContent = path.zeroHop ? '零跳记录：没有 PPI 边，也不会补画自环。' : '高亮 ' + path.edgeIds.length + ' 条文件中已有的 PPI 边。';
     if (hidden) $('search-status').textContent += ' 当前筛选隐藏了部分路径元素。';
     $('detail-title').textContent = focusView() ? (path.raw.drug || '靶点') + (state.runExample ? ' / 核心路径' : ' / 疾病模块') : path.kind === 'cross' ? '双药靶点连接' : referenceMode() ? '靶点—文献背景' : '靶点—疾病路径';
-    $('detail-description').textContent = focusView() ? state.runExample ? '高亮原始运行中已有的候选靶点关联和无向 PPI，不增添网络关系。' : '已有基因路径与疾病背景归属分开呈现。紫色点线不是 PPI；该背景不是计算疾病基因集。' : path.zeroHop ? '零跳仅表示共享节点或集合成员关系。' : '路径仅用于高亮已记录的边，不增添网络关系。';
+    $('detail-description').textContent = focusView() ? state.demoExample ? '高亮合成示例中的靶点关联和互作路径；这些关系不是真实生物学证据。' : state.runExample ? '高亮原始运行中已有的候选靶点关联和无向 PPI，不增添网络关系。' : '已有基因路径与疾病背景归属分开呈现。紫色点线不是 PPI；该背景不是计算疾病基因集。' : path.zeroHop ? '零跳仅表示共享节点或集合成员关系。' : '路径仅用于高亮已记录的边，不增添网络关系。';
     $('detail-json').textContent = pretty(path.raw, 6500); $('detail-json').hidden = false; tab('details'); inspector(true);
   }
   function renderPaths() {
@@ -2364,7 +2432,9 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
     const payload = state.rows[index], model = suppliedModel || G.build(payload);
     state.model = model; state.selectedPath = null;
     state.reference = payload === window.InterpreterReference;
-    state.runExample = !!window.InterpreterRunExample && payload === window.InterpreterRunExample.payload;
+    state.demoExample = payload === window.InterpreterPublicDemo.payload;
+    state.runBundle = state.demoExample ? window.InterpreterPublicDemo : RUNS.find(run => payload === run.payload) || null;
+    state.runExample = !!state.runBundle;
     state.referenceView = 'focus';
     $('case-guide').hidden = !state.reference; $('reference-sources').hidden = !state.reference;
     $('explore-panel').classList.toggle('has-guide', state.reference);
@@ -2440,7 +2510,7 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
   }
   async function exportPng() {
     if (!state.cy || !state.model.nodeCount) return;
-    const exportedModel = state.model, exportedCaseId = state.runExample ? window.InterpreterRunExample.source.case_id : null;
+    const exportedModel = state.model, exportedCaseId = state.runExample && !state.demoExample ? state.runBundle.source.case_id : null;
     const dataUrl = state.cy.png({ full: true, scale: 2, bg: '#fbfcf6', maxWidth: 2400, maxHeight: 1700 });
     const image = new Image();
     image.onload = () => {
@@ -2455,7 +2525,7 @@ var Yr=function(e){if(!(this instanceof Yr))return new Yr(e);this.id="Thenable/1
     image.onerror = () => error('浏览器未能导出图像。'); image.src = dataUrl;
   }
   function boot() {
-    if (!G || !window.InterpreterReference || !window.InterpreterExample || typeof window.cytoscape !== 'function') { error('查看器资源未加载完整。请保留目录内的资源文件，或使用打包后的单文件 HTML。'); return; }
+    if (!G || !window.InterpreterReference || !window.InterpreterExample || !window.InterpreterPublicDemo || typeof window.cytoscape !== 'function') { error('查看器资源未加载完整。请保留目录内的资源文件，或使用打包后的单文件 HTML。'); return; }
     if (RUNS.length) {
       RUNS.forEach((run, index) => {
         if (run.schema !== 'interpreterplato-local-run/v1') throw new Error('Unknown local run bundle schema');

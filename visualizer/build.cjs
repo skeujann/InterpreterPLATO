@@ -18,7 +18,7 @@ function build(output, options = {}) {
   const localRuns = cases.map(item => require('./prepare-run.cjs').prepareRun(item.file, item.pathIds || []));
   const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
   html = html.replace('<link rel="stylesheet" href="styles.css">', '<style>\n' + css + '\n</style>');
-  for (const source of ['vendor/cytoscape.min.js', 'example.js', 'reference.js', 'graph-model.js', 'app.js']) {
+  for (const source of ['vendor/cytoscape.min.js', 'example.js', 'public-demo.js', 'reference.js', 'graph-model.js', 'app.js']) {
     const embedded = source === 'app.js' && localRuns.length ? 'window.InterpreterRunExamples = ' + JSON.stringify(localRuns).replace(/</g, '\\u003c') + ';\nwindow.InterpreterRunExample = window.InterpreterRunExamples[0];\n' : '';
     const code = (embedded + fs.readFileSync(path.join(root, source), 'utf8')).replace(/<\/script/gi, '<\\/script');
     // A replacement callback preserves literal $&, $$ and similar sequences in JS.
