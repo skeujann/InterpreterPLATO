@@ -4,12 +4,14 @@
 
 ## 纯前端离线 Visualizer
 
-下载源码后双击 `visualizer/index.html`，即可在浏览器本地打开已有解释 JSON，查看网络、
+下载 [单文件公开版 HTML](https://github.com/skeujann/InterpreterPLATO/raw/refs/heads/main/InterpreterPLATO-Visualizer.html) 后双击打开，
+或下载源码后双击 `visualizer/index.html`，即可在浏览器本地打开已有解释 JSON，查看网络、
 筛选节点、高亮双药与疾病路径、检查诊断并导出带标识的 PNG。无需运行 Python 或部署模型，
 文件不上传服务器；Cytoscape.js 随查看器打包。内置合成示例明确标注“概念示意（非真实计算结果）”。
 使用方法、单文件打包和证据边界见 [Visualizer 说明](visualizer/README.md)。
 首页默认提供 [BRAF / MEK 文献实例](visualizer/REFERENCE_CASE.md)：Dabrafenib + Trametinib、
 9 条可追溯公共互作和分步导览。该实例为人工整理的公共注释，不是 PLATO 或解释器计算结果。
+公开版不内置本地开发案例、COSMIC 数据或 PLATO 运行输出；自己的结果通过“打开 JSON”在浏览器内读取。
 
 ## 安装与测试
 

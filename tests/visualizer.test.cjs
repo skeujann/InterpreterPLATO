@@ -100,8 +100,14 @@ test('the optional single-file distribution embeds every asset, the license and 
     const output = build(path.join(temporary, 'viewer.html')), html = fs.readFileSync(output, 'utf8');
     assert.doesNotMatch(html, /<script[^>]+src=/i); assert.doesNotMatch(html, /<link[^>]+stylesheet/i);
     assert.match(html, /Permission is hereby granted/); assert.match(html, /Cytoscape\.js 3\.34\.3/);
+    assert.equal(/window\.InterpreterRunExamples?\s*=\s*[\[{]/.test(html), false, 'the public build must not embed local run bundles');
     const scripts = [...html.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)];
     assert.equal(scripts.length, 5); scripts.forEach(([, source]) => new vm.Script(source));
+    const context = vm.createContext({});
+    new vm.Script(scripts[1][1]).runInContext(context);
+    new vm.Script(scripts[2][1]).runInContext(context);
+    assert.equal(context.InterpreterExample.generated_from_test_fixture, true);
+    assert.equal(context.InterpreterReference.run_mode, 'reference_example');
   } finally {
     assert.equal(path.dirname(path.resolve(temporary)), path.resolve(os.tmpdir()));
     assert.ok(path.basename(temporary).startsWith('plato-visualizer-'));

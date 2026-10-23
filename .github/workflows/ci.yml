@@ -43,5 +43,7 @@ jobs:
         run: npm ci --prefix visualizer --ignore-scripts
       - name: Test graph semantics and browser interaction logic
         run: npm test --prefix visualizer
-      - name: Build offline standalone viewer
-        run: node visualizer/build.cjs --output "$RUNNER_TEMP/InterpreterPLATO-Visualizer.html"
+      - name: Verify published standalone viewer matches the public build
+        run: |
+          node visualizer/build.cjs --output "$RUNNER_TEMP/InterpreterPLATO-Visualizer.html"
+          cmp InterpreterPLATO-Visualizer.html "$RUNNER_TEMP/InterpreterPLATO-Visualizer.html"

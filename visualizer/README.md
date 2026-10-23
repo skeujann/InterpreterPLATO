@@ -4,10 +4,12 @@
 
 ## 直接使用
 
-下载仓库源码后，双击本目录的 `index.html`，并保留同目录的 JS、CSS 和 `vendor/` 文件。
+下载 [单文件公开版 HTML](https://github.com/skeujann/InterpreterPLATO/raw/refs/heads/main/InterpreterPLATO-Visualizer.html)，双击即可打开，无需安装运行环境。
+也可下载仓库源码，双击本目录的 `index.html`，并保留同目录的 JS、CSS 和 `vendor/` 文件。
 浏览器会先显示 **Dabrafenib + Trametinib** 的文献导览实例（非模型计算结果）。
 可切换到“合成测试 · 功能边界”；点击 **打开 JSON**，或拖入本地文件，
 即可查看已有解释。支持单条解释、解释数组，以及 `{"results": [...]}`。
+公开版只内置公共文献注释和合成测试示例，不含本地开发案例或受限数据；自己的运行结果可在本地打开。
 
 文件只在当前浏览器内通过 File API 读取。应用不向服务器上传数据、不查询 PLATO、
 不下载原始生物医学资源，也不重新运行解释器。Cytoscape.js 已随目录打包，没有 CDN、
@@ -87,6 +89,14 @@ node visualizer/build.cjs
 对方双击即可打开，无需 Node.js、Python、其他资源文件或网络连接。
 第三方库的 MIT 许可证同时保留在单文件中。
 
+维护仓库根目录的公开版时，不传入 `--case`，执行：
+
+```bash
+node visualizer/build.cjs --output InterpreterPLATO-Visualizer.html
+```
+
+CI 会比较重新构建的文件与已提交公开版，避免源码更新后下载文件仍是旧版。
+
 ## 将已有实际运行结果制作成本地实例
 
 查看器也支持在同一个离线 HTML 中内置多份已完成的解释器输出，通过右上角选单切换。
@@ -119,7 +129,7 @@ node visualizer/build.cjs --case /local/case-a.json --case /local/case-b.json --
 
 构建器只读取本地输入并写入用户指定的输出位置，不创建公开数据文件，也不上传。
 含 COSMIC、PLATO 导出或其他受限注释的真实运行实例应保留在本地许可范围内，
-公开仓库只提供查看器与构建代码；`visualizer/dist/` 已忽略，运行 JSON 不作为公共测试夹具提交。
+公开仓库提供查看器、构建代码和不含受限数据的单文件公开版；`visualizer/dist/` 已忽略，运行 JSON 不作为公共测试夹具提交。
 
 ## 开发检查
 
